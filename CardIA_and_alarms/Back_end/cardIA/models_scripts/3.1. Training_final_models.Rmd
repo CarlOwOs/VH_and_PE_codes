@@ -62,9 +62,9 @@ SVM_target_future <- read.csv('../Results/2. Ensembling_models/2.1. Best_models/
 Reading continuous, categorized, and one hot data. Deleting some columns which values are incorrect or not useful for training the models.
 
 ```{r}
-X_cont <- read.csv('../../Data/factors_2_numbers_del_cont.csv')
-X_cat <- read.csv('../../Data/factors_2_numbers_del.csv')
-X_one <- read.csv('../../Data/onehot_del_cont.csv')
+X_cont <- read.csv('../Data/factors_2_numbers_del_cont.csv')
+X_cat <- read.csv('../Data/factors_2_numbers_del.csv')
+X_one <- read.csv('../Data/onehot_del_cont.csv')
 
 drop <- names(X_cont) %in% c("mg_sacu_seguim")
 X_cont <- subset(X_cont, select = !drop)
