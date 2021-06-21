@@ -35,7 +35,7 @@ data_name = "factors_2_numbers_del"
 Reading of the clean .csv file, droping columns with wrong formated values and converting the targets to factor.
 
 ```{r}
-dd <- read.csv(paste0('../../Data/factors_2_numbers_del.csv'))
+dd <- read.csv(paste0('../Data/factors_2_numbers_del.csv'))
 drop <- names(dd) %in% c("mg_sacu_seguim", "nhc")
 dd <- subset(dd, select = !drop)
 targets <- c("target_1","target_6","target_12","target_future")
