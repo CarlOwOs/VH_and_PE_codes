@@ -1,0 +1,1096 @@
+---
+title: "R Notebook"
+output: ''
+---
+
+Training the final models and saving performance results. The final models are a composition of KSVM, RDA, and RF.
+
+```{r}
+library(class)
+library(car)
+library(tables)
+library(RcmdrMisc)
+library(dplyr)
+library(MASS)
+library(klaR)
+library(splitstackshape)
+library(kernlab)
+library(rpart)
+library(caret)
+library(randomForest)
+library(ROSE)
+library(DMwR2)
+```
+
+### Parameters
+
+Parameters of the script:
+
+*   Seed: 433.
+
+*   Splitting: 1 or 2.
+
+```{r}
+seed <- 433
+set.seed(seed)
+splitting <- 1
+```
+
+### Reading best models
+
+Importing the CSV's that contain the best hyperparameters for each target and model. 
+
+```{r}
+RDA_target_1 <- read.csv('../Results/2. Ensembling_models/2.1. Best_models/RDA_target_1.csv')
+RDA_target_6 <- read.csv('../Results/2. Ensembling_models/2.1. Best_models/RDA_target_6.csv')
+RDA_target_12 <- read.csv('../Results/2. Ensembling_models/2.1. Best_models/RDA_target_12.csv')    
+RDA_target_future <- read.csv('../Results/2. Ensembling_models/2.1. Best_models/RDA_target_future.csv')
+
+RF_target_1 <- read.csv('../Results/2. Ensembling_models/2.1. Best_models/RF_target_1.csv')
+RF_target_6 <- read.csv('../Results/2. Ensembling_models/2.1. Best_models/RF_target_6.csv')
+RF_target_12 <- read.csv('../Results/2. Ensembling_models/2.1. Best_models/RF_target_12.csv')
+RF_target_future <- read.csv('../Results/2. Ensembling_models/2.1. Best_models/RF_target_future.csv')
+
+SVM_target_1 <- read.csv('../Results/2. Ensembling_models/2.1. Best_models/KSVM_target_1.csv')
+SVM_target_6 <- read.csv('../Results/2. Ensembling_models/2.1. Best_models/KSVM_target_6.csv')
+SVM_target_12 <- read.csv('../Results/2. Ensembling_models/2.1. Best_models/KSVM_target_12.csv')
+SVM_target_future <- read.csv('../Results/2. Ensembling_models/2.1. Best_models/KSVM_target_future.csv')
+```
+
+### Reading the data
+
+Reading continuous, categorized, and one hot data. Deleting some columns which values are incorrect or not useful for training the models.
+
+```{r}
+X_cont <- read.csv('../../Data/factors_2_numbers_del_cont.csv')
+X_cat <- read.csv('../../Data/factors_2_numbers_del.csv')
+X_one <- read.csv('../../Data/onehot_del_cont.csv')
+
+drop <- names(X_cont) %in% c("mg_sacu_seguim")
+X_cont <- subset(X_cont, select = !drop)
+
+drop <- names(X_cat) %in% c("mg_sacu_seguim")
+X_cat <- subset(X_cat, select = !drop)
+
+drop <- names(X_one) %in% c("mg_sacu_seguim")
+X_one <- subset(X_one, select = !drop)
+```
+
+
+### Factors and ordinal variables
+
+Defining categorical variables as factors. The following vectors (categorical and ordered) contain the names of all categorical and ordinal variables.
+
+1. For non-one-hot data:
+
+```{r}
+categorical_cont <- c('sexe','data_visita_year','data_visita_month','data_visita_week','data_visita_day','procedencia','motiu_derivacio___1','motiu_derivacio___2','motiu_derivacio___3','motiu_derivacio___4','motiu_derivacio___5','motiu_derivacio___6','motiu_derivacio___7','motiu_derivacio___8','etiologia___1','etiologia___2','etiologia___3','etiologia___4','etiologia___5','etiologia___6','etiologia___7','etiologia___8','etiologia___9','etiologia___10','etiologia___11','etiologia___12','etiologia___13','antecedents___1','antecedents___2','antecedents___3','antecedents___4','antecedents___5','antecedents___6','antecedents___7','antecedents___8','antecedents___9','antecedents___10','antecedents___11','antecedents___12','antecedents___21','antecedents___13','antecedents___14','antecedents___15','antecedents___16','antecedents___17','antecedents___20','neoplasia_estat','neoplasia_qt','tipus_iqprevia','insuf_mitral_seguim','ritme_base_seguim','trastorn_conduccio_t_v_1','marca','tto_ev_tipo___1','tto_ev_tipo___2','tto_ev_tipo___3','tto_ev_tipo___4','tto_ev_tipo___5','classe_funcional_seguim','ttm_seguim___8','ttm_seguim___9','ttm_seguim___10','ttm_seguim___11','ttm_seguim___12','ttm_seguim___13','ttm_seguim___14','ttm_seguim___15','ttm_seguim___16','ttm_seguim___17','ttm_seguim___18','ttm_seguim___20','ttm_seguim___21','ttm_seguim___23','ttm_seguim___24','ttm_seguim___25','ttm_seguim___26','ttm_seguim___27','ttm_seguim___28','ttm_seguim___29','ttm_seguim___30','ttm_seguim___33','mg_diur_segui','mg_tiaz_seguim','mg_anti_seguim','mg_ieca_seguim','mg_ara2_seguim','mg_beta_seguim','mg_islgt2_seguim','mg_naco_seguim','estacio_visita','IMC','mg_diur_segui')
+  
+ordered_cont <- c('insuf_mitral_seguim','mg_tiaz_seguim','mg_anti_seguim','mg_ieca_seguim','mg_ara2_seguim','mg_beta_seguim','mg_islgt2_seguim','mg_naco_seguim','IMC','classe_funcional_seguim','mg_diur_segui')
+```
+
+2. For categorized data:
+
+```{r}
+categorized_cat <- c("feve_seguim", "dtdve_seguim", "tiv_seguim", "paret", "auricula_seguim", "temps_desac_seguim", 
+                   "tapse_seguim", "paps_seguim", "amplada_qrs_seguim", "hb_seguim", "ferritina_seguim", "sat_transf_seguim", "ha1c_seguim", "creat_seguim", 
+                   "fge_seguim", 
+                   "urats_seguim", "sodi_seguim", "potassi_seguim", "cloro_seguim", "tni_seguim", "probnp_seguim", 
+                   "cole_seguim", "colehdl_segui", "coleldl_segui", "trigli_seguim", "prot_seguim", "albu_seguim", 
+                   "ca125_seguim", "st2_seguim", "prot_creorin_seguim", "albu_crorin_seguim",
+                   "ona_e_seguim", "ona_a_seguim", "ona_e_prima_seguim")
+
+categorical_cat <- c(categorical_cont, categorized_cat)
+ordered_cat <- c(ordered_cont, categorized_cat)
+```
+
+3. For one-hot data:
+
+```{r}
+one_hot <- c()
+for (c in colnames(X_one)) {
+  if (length(unique(X_one[,c])) <= 2) {
+    one_hot <- c(one_hot, c)
+  }
+}
+  
+categorical_one <- c(one_hot, 'data_visita_year','data_visita_month','data_visita_week','data_visita_day','insuf_mitral_seguim','classe_funcional_seguim',
+                     'mg_diur_segui','mg_tiaz_seguim','mg_anti_seguim','mg_ieca_seguim','mg_ara2_seguim','mg_beta_seguim','mg_islgt2_seguim','mg_naco_seguim','IMC')
+ordered_one <- c('insuf_mitral_seguim','classe_funcional_seguim','mg_diur_segui','mg_tiaz_seguim','mg_anti_seguim','mg_ieca_seguim','mg_ara2_seguim','mg_beta_seguim'
+                 ,'mg_islgt2_seguim','mg_naco_seguim','IMC')
+```
+
+Defining categorical variables as "factors" and ordinal variables as "ordered". Otherwise, they would be interpreted as integers.
+
+```{r}
+for (c in categorical_cont) {
+  index_c <- which(colnames(X_cont) == c)
+  X_cont[,index_c] <- as.factor(X_cont[,index_c])
+}
+
+for (o in ordered_cont) {
+  index_o <- which(colnames(X_cont) == o)
+  X_cont[,index_o] <- as.ordered(X_cont[,index_o])
+}
+  
+for (c in categorical_cat) {
+  index_c <- which(colnames(X_cat) == c)
+  X_cat[,index_c] <- as.factor(X_cat[,index_c])
+}
+  
+for (o in ordered_cat) {
+  index_o <- which(colnames(X_cat) == o)
+  X_cat[,index_o] <- as.ordered(X_cat[,index_o])
+}
+  
+for (c in categorical_one) {
+  index_c <- which(colnames(X_one) == c)
+  X_one[,index_c] <- as.factor(X_one[,index_c])
+}
+  
+for (o in ordered_one) {
+  index_o <- which(colnames(X_one) == o)
+  X_one[,index_o] <- as.ordered(X_one[,index_o])
+}
+```
+
+
+### Train / test split
+
+Splitting the data into train and test sets. The test data contains the second half of the rows corresponding to the last visit of all patients if splitting == 1, and the other half if splitting == 2. The other rows form the train set.
+
+Selecting the indexes corresponding to the last visit of all patients and keeping them in the test_set list. Other indexes go to the train_set list.
+
+```{r}
+training_set <- c()
+test_set <- c()
+nhc <- X_cont$nhc[nrow(X_cont)]
+test_set <- c(test_set, nrow(X_cont))
+
+for (i in (nrow(X_cont)-1):1) {
+  if (nhc == X_cont$nhc[i]) {
+    training_set <- c(training_set, i)
+  } else {
+    test_set <- c(test_set, i)
+  }
+  nhc <- X_cont$nhc[i]
+}
+```
+
+
+```{r}
+set.seed(seed)
+
+target_6_ones <- which(X_cont[, "target_6"] == 1)
+target_6_ones <- sample(target_6_ones[!(which(X_cont[, "target_6"] == 1) %in% test_set)])[1:6]
+
+target_12_ones <- which(X_cont[, "target_12"] == 1)
+target_12_ones <- sample(target_12_ones[!(which(X_cont[, "target_12"] == 1) %in% test_set)])[1:2]
+
+target_future_ones <- which(X_cont[, "target_future"] == 1)
+target_future_ones <- sample(target_future_ones[!(which(X_cont[, "target_future"] == 1) %in% test_set)])[1:3]
+
+new_test <- unique(c(target_6_ones, target_12_ones, target_future_ones))
+```
+
+```{r}
+training_set <- training_set[!(training_set %in% new_test)]
+test_set <- c(test_set, new_test)
+```
+
+Selecting the indexes of the rows that will go to train or test sets, according to splitting value.
+Also, saving the nhc of the two splits.
+
+```{r}
+set.seed(seed)
+len_test <- length(test_set)
+
+# In order to keep the proportion of positives in both test splits, 
+# the partition process is performed randomly but ensuring that half of
+# the positives go to one split.
+# In order to perform such operation, stratified sampling will be used.
+
+# Obtaining the nhcs from the first partition.
+aux_rand_1 <- as.data.frame(stratified(X_cont[test_set,], c("target_1", "target_6","target_12", "target_future"), 0.5))$nhc
+
+
+# Initializing the first randomly selected test split.
+test_rand_1 = c()
+
+# Extracting the indexs of the rows in the original dataframe using the previous nhcs.
+for (val in aux_rand_1){
+  idx = rownames(subset(X_cont[test_set,],nhc == val))
+  test_rand_1 = c(test_rand_1,idx)
+} 
+
+test_rand_2 <- test_set[!test_set %in% test_rand_1]
+
+dir.create(file.path("../Results", "3. Final_models", "3.1. Training", "3.1.1. Patients_ID"), recursive = TRUE, showWarnings = FALSE)
+if (splitting == 1) {
+  training_set <- c(training_set, test_rand_1)
+  test_set <- test_rand_2
+  saveRDS(X_cont[test_set, 1], file = '../Results/3. Final_models/3.1. Training/3.1.1. Patients_ID/nhc_spl1.csv')
+} else if (splitting == 2) {
+  training_set <- c(training_set, test_rand_2)
+  test_set <- test_rand_1
+  saveRDS(X_cont[test_set, 1], file = '../Results/3. Final_models/3.1. Training/3.1.1. Patients_ID/nhc_spl2.csv')
+}
+```
+
+Performing train/test split.
+
+```{r}
+training_set_cont <- X_cont[training_set,-1]
+training_set_cat <- X_cat[training_set,-1]
+training_set_one <- X_one[training_set,-1]
+
+test_set_cont <- X_cont[test_set,-1]
+test_set_cat <- X_cat[test_set,-1]
+test_set_one <- X_one[test_set,-1]
+```
+
+
+Deleting binary categorical variables containing less than three values for one of the categories. Otherwise, it would lead to errors.
+
+```{r}
+name_columns_cont <- c()
+for (c in colnames(training_set_cont)) {
+  if(length(unique(training_set_cont[,c])) <= 2) {
+    repeticions <- sum(training_set_cont[,c] == unique(training_set_cont[,c])[1])
+    if (repeticions <= 2 || (nrow(training_set_cont)-repeticions) <= 2) {
+      name_columns_cont <- c(name_columns_cont, c)
+    }
+  }
+}
+
+drop <- (names(training_set_cont) %in% name_columns_cont)
+training_set_cont <- subset(training_set_cont, select = !drop)
+test_set_cont <- subset(test_set_cont, select = !drop)
+
+
+name_columns_cat <- c()
+for (c in colnames(training_set_cat)) {
+  if(length(unique(training_set_cat[,c])) <= 2) {
+    repeticions <- sum(training_set_cat[,c] == unique(training_set_cat[,c])[1])
+    if (repeticions <= 2 || (nrow(training_set_cat)-repeticions) <= 2) {
+      name_columns_cat <- c(name_columns_cat, c)
+    }
+  }
+}
+
+drop <- (names(training_set_cat) %in% name_columns_cat)
+training_set_cat <- subset(training_set_cat, select = !drop)
+test_set_cat <- subset(test_set_cat, select = !drop)
+
+
+name_columns_one <- c()
+for (c in colnames(training_set_one)) {
+  if(length(unique(training_set_one[,c])) <= 2) {
+    repeticions <- sum(training_set_one[,c] == unique(training_set_one[,c])[1])
+    if (repeticions <= 2 || (nrow(training_set_one)-repeticions) <= 2) {
+      name_columns_one <- c(name_columns_one, c)
+    }
+  }
+}
+
+drop <- (names(training_set_one) %in% name_columns_one)
+training_set_one <- subset(training_set_one, select = !drop)
+test_set_one <- subset(test_set_one, select = !drop)
+```
+
+### Data standardization
+
+Standardizing numerical variables to force them to have 0 mean and 1 standard deviation (sd). The standardization of the test set is performed with the same mean and sd of the training set.
+
+```{r}
+numerical_cont <- !(colnames(training_set_cont) %in% categorical_cont)
+numerical_cont[c(length(numerical_cont),length(numerical_cont)-1,length(numerical_cont)-2,length(numerical_cont)-3)] <- FALSE
+normParam_cont <- preProcess(training_set_cont[, numerical_cont])
+training_set_num_cont <- predict(normParam_cont, training_set_cont[, numerical_cont])
+test_set_num_cont <- predict(normParam_cont, test_set_cont[, numerical_cont])
+
+training_set_cont[, numerical_cont] <- data.frame(scale(training_set_num_cont))
+test_set_cont[, numerical_cont] <- data.frame(test_set_num_cont)
+
+
+numerical_cat <- !(colnames(training_set_cat) %in% categorical_cat)
+numerical_cat[c(length(numerical_cat),length(numerical_cat)-1,length(numerical_cat)-2,length(numerical_cat)-3)] <- FALSE
+normParam_cat <- preProcess(training_set_cat[, numerical_cat])
+training_set_num_cat <- predict(normParam_cat, training_set_cat[, numerical_cat])
+test_set_num_cat <- predict(normParam_cat, test_set_cat[, numerical_cat])
+
+training_set_cat[, numerical_cat] <- data.frame(scale(training_set_num_cat))
+test_set_cat[, numerical_cat] <- data.frame(test_set_num_cat)
+
+
+numerical_one <- !(colnames(training_set_one) %in% categorical_one)
+numerical_one[c(length(numerical_one),length(numerical_one)-1,length(numerical_one)-2,length(numerical_one)-3)] <- FALSE
+normParam_one <- preProcess(training_set_one[, numerical_one])
+training_set_num_one <- predict(normParam_one, training_set_one[, numerical_one])
+test_set_num_one <- predict(normParam_one, test_set_one[, numerical_one])
+
+training_set_one[, numerical_one] <- data.frame(scale(training_set_num_one))
+test_set_one[, numerical_one] <- data.frame(test_set_num_one)  
+```
+
+### Final classification ML models
+
+Definition of KSVM_results(), RDA_results(), and RF_results() functions used to train KSVM, RDA and RF models.
+
+1. **KSVM**
+
+2. **RDA**
+
+3. **RF**
+
+
+Creating the folder, where the models are going to be saved.
+
+```{r}
+dir.create(file.path("../Results", "3. Final_models", "3.1. Training", "3.1.2. Models"), recursive = TRUE, showWarnings = FALSE)
+```
+
+#### KSVM
+
+**KSVM()**
+
+Function that given a data frame with the best hyperparameters(obtained with CV) for KSVM , trains and saves the KSVM models. 
+
+```{r}
+KSVM <- function(SVM_target, num, training_set_cont_under, training_set_cat_under, training_set_one_under, training_set_cont_ROSE, training_set_catt_ROSE,
+                 training_set_one_ROSE,training_set_cont_both,training_set_cat_both,training_set_one_both,splitting) {
+   set.seed(seed)
+   for (i in 1:nrow(SVM_target)) {
+       if (SVM_target$Data[i] == "factors_2_numbers_del_cont.csv") {
+         if (SVM_target$Balancing[i] == "under") {
+          file_name <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', splitting, 'model', i, '_SVM_','target',num,'.rds')
+          
+          saveRDS(ksvm(target ~ ., data = training_set_cont_under, type = as.character(SVM_target$Type[i]), kernel = as.character(SVM_target$Kernel[i]), 
+                       C =  SVM_target$C[i], prob.model = TRUE), file_name)
+        }
+        else if (SVM_target$Balancing[i] == "baseline") {
+          file_name <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', splitting, 'model', i, '_SVM_','target',num,'.rds')
+          
+          saveRDS(ksvm(target ~ ., data = training_set_cont, type = as.character(SVM_target$Type[i]), kernel = as.character(SVM_target$Kernel[i]), 
+                       C =  SVM_target$C[i], prob.model = TRUE), file_name)
+        }
+        else if (SVM_target$Balancing[i] == "ROSE") {
+          file_name <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', splitting, 'model', i, '_SVM_','target',num,'.rds')
+          saveRDS(ksvm(target ~ ., data = training_set_cont_ROSE, type = as.character(SVM_target$Type[i]), kernel = as.character(SVM_target$Kernel[i]), 
+                       C =  SVM_target$C[i], prob.model = TRUE), file_name)
+        }
+         else if (SVM_target$Balancing[i] == "both"){
+           file_name <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', splitting, 'model', i, '_SVM_','target',num,'.rds')
+           saveRDS(ksvm(target ~ ., data = training_set_cont_both, type = as.character(SVM_target$Type[i]), kernel = as.character(SVM_target$Kernel[i]), 
+                       C =  SVM_target$C[i], prob.model = TRUE), file_name)
+         }
+      }
+      else if (SVM_target$Data[i] == "factors_2_numbers_del.csv") {
+        if (SVM_target$Balancing[i] == "under") {
+          file_name <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', splitting, 'model', i, '_SVM_','target',num,'.rds')
+          saveRDS(ksvm(target ~ ., data = training_set_cat_under, type = as.character(SVM_target$Type[i]), kernel = as.character(SVM_target$Kernel[i]), 
+                       C =  SVM_target$C[i], prob.model = TRUE), file_name)
+        }
+        else if (SVM_target$Balancing[i] == "baseline") {
+         file_name <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', splitting, 'model', i, '_SVM_','target',num,'.rds')
+          saveRDS(ksvm(target ~ ., data = training_set_cat, type = as.character(SVM_target$Type[i]), kernel = as.character(SVM_target$Kernel[i]), 
+                       C =  SVM_target$C[i], prob.model = TRUE), file_name)
+        }
+        else if (SVM_target$Balancing[i] == "ROSE") {
+          file_name <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', splitting, 'model', i, '_SVM_','target',num,'.rds')
+          saveRDS(ksvm(target ~ ., data = training_set_cat_ROSE, type = as.character(SVM_target$Type[i]), kernel = as.character(SVM_target$Kernel[i]), 
+                       C =  SVM_target$C[i], prob.model = TRUE), file_name)
+        }
+        else if (SVM_target$Balancing[i] == "both") {
+          file_name <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', splitting, 'model', i, '_SVM_','target',num,'.rds')
+          saveRDS(ksvm(target ~ ., data = training_set_cat_both, type = as.character(SVM_target$Type[i]), kernel = as.character(SVM_target$Kernel[i]), 
+                       C =  SVM_target$C[i], prob.model = TRUE), file_name)
+        }
+      }
+    
+      else if (SVM_target$Data[i] == "onehot_del_cont.csv") {
+        if (SVM_target$Balancing[i] == "under") {
+          file_name <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', splitting, 'model', i, '_SVM_','target', num,'.rds')
+          saveRDS(ksvm(target ~ ., data = training_set_one_under, type = as.character(SVM_target$Type[i]), kernel = as.character(SVM_target$Kernel[i]), 
+                       C =  SVM_target$C[i], prob.model = TRUE), file_name)
+      }
+        else if (SVM_target$Balancing[i] == "baseline") {
+          file_name <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', splitting, 'model', i, '_SVM_','target',num,'.rds')
+          saveRDS(ksvm(target ~ ., data = training_set_one, type = as.character(SVM_target$Type[i]), kernel =  as.character(SVM_target$Kernel[i]), 
+                       C =  SVM_target$C[i], prob.model = TRUE), file_name)
+      }
+        else if (SVM_target$Balancing[i] == "ROSE") {
+          file_name <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', splitting, 'model', i, '_SVM_','target',num,'.rds')
+          saveRDS(ksvm(target ~ ., data = training_set_one_ROSE, type = as.character(SVM_target$Type[i]), kernel = as.character(SVM_target$Kernel[i]), 
+                       C =  SVM_target$C[i], prob.model = TRUE), file_name)
+        }
+         else if (SVM_target$Balancing[i] == "both") {
+          file_name <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', splitting, 'model', i, '_SVM_','target',num,'.rds')
+          saveRDS(ksvm(target ~ ., data = training_set_one_both, type = as.character(SVM_target$Type[i]), kernel = as.character(SVM_target$Kernel[i]), 
+                       C =  SVM_target$C[i], prob.model = TRUE), file_name)
+         }
+        
+      }
+   }
+}
+```
+
+
+## RDA
+
+**RDA()**
+
+Function that given a data frame with the best hyperparameters(obtained with CV) for RDA , trains, and saves the RDA models. 
+
+```{r}
+RDA <- function(RDA_target, num, training_set_cont_under, training_set_cat_under, training_set_one_under, training_set_cont_ROSE, training_set_catt_ROSE, training_set_one_ROSE, training_set_cat, training_set_cont, training_set_one, splitting) {
+  set.seed(seed)
+  for (i in 1:nrow(RDA_target)) {
+    if (RDA_target$Data[i] == "factors_2_numbers_del_cont.csv") {
+        if (RDA_target$Balancing[i] == "under") {
+          file_name <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', splitting, 'model', i, '_RDA_','target',num,'.rds')
+          saveRDS(rda(target ~ ., data = training_set_cont_under, p = c(1-RDA_target$Prior[i], RDA_target$Prior[i])), file_name)          
+        }
+        else if (RDA_target$Balancing[i] == "baseline") {
+          file_name <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', splitting, 'model', i, '_RDA_','target',num,'.rds')
+          saveRDS(rda(target ~ ., data = training_set_cont, p = c(1-RDA_target$Prior[i], RDA_target$Prior[i])), file_name)            
+        } 
+        else if (RDA_target$Balancing[i] == "ROSE") {
+          file_name <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', splitting, 'model', i, '_RDA_','target',num,'.rds')
+          saveRDS(rda(target ~ ., data = training_set_cont_ROSE, p = c(1-RDA_target$Prior[i], RDA_target$Prior[i])), file_name)             
+        } 
+    } 
+    else if (RDA_target$Data[i] == "factors_2_numbers_del.csv") {
+        if (RDA_target$Balancing[i] == "under") {
+          file_name <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', splitting, 'model', i, '_RDA_','target',num,'.rds')
+          saveRDS(rda(target ~ ., data = training_set_cat_under, p = c(1-RDA_target$Prior[i], RDA_target$Prior[i])), file_name)                
+        }
+        else if (RDA_target$Balancing[i] == "baseline") {
+          file_name <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', splitting, 'model', i, '_RDA_','target',num,'.rds')
+          saveRDS(rda(target ~ ., data = training_set_cat, p = c(1-RDA_target$Prior[i], RDA_target$Prior[i])), file_name)                
+        } 
+        else if (RDA_target$Balancing[i] == "ROSE") {
+          file_name <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', splitting, 'model', i, '_RDA_','target',num,'.rds')
+          saveRDS(rda(target ~ ., data = training_set_cat_ROSE, p = c(1-RDA_target$Prior[i], RDA_target$Prior[i])), file_name)                
+        }
+    }
+    else if (RDA_target$Data[i] == "onehot_del_cont.csv") {
+      if (RDA_target$Balancing[i] == "under") {
+          file_name <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', splitting, 'model', i, '_RDA_','target',num,'.rds')
+          saveRDS(rda(target ~ ., data = training_set_one_under, p = c(1-RDA_target$Prior[i], RDA_target$Prior[i])), file_name)              
+      }
+      else if (RDA_target$Balancing[i] == "baseline") {
+          file_name <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', splitting, 'model', i, '_RDA_','target',num,'.rds')
+          saveRDS(rda(target ~ ., data = training_set_one, p = c(1-RDA_target$Prior[i], RDA_target$Prior[i])), file_name)              
+      } 
+      else if (RDA_target$Balancing[i] == "ROSE") {
+          file_name <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', splitting, 'model', i, '_RDA_','target',num,'.rds')
+          saveRDS(rda(target ~ ., data = training_set_one_ROSE, p = c(1-RDA_target$Prior[i], RDA_target$Prior[i])), file_name)              
+      }
+    }
+  }
+}
+```
+
+## RF
+
+**RF()**
+
+Function that given a data frame with the best hyperparameters for RF (obtained with CV), trains, and saves the RF models. 
+
+```{r}
+RF <- function(RF_target, num, training_set_cat_rf, test_set_cat_rf, splitting) {
+  set.seed(seed)
+  for (i in 1:nrow(RF_target)) {
+    if (RF_target$Mètode[i] == "Cutoff") {
+      rare.class.prevalence = sum(as.numeric(training_set_cat_rf$target)-1)/nrow(training_set_cat_rf)
+      new_weight = min(0.9,rare.class.prevalence*RF_target$Paràmetre[i])
+      my_RF_TR <- randomForest(target ~ .,data=training_set_cat_rf, xtest=test_set_cat_rf[1:ncol(test_set_cat_rf)-1],  ytest = test_set_cat_rf$target,
+                               ntree = RF_target$N.arbres[i], cutoff=c("0" = 1-new_weight, "1" = new_weight), keep.forest = TRUE)
+    
+      file_name <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', splitting, 'model', i, '_RF_','target',num,'.rds')
+      saveRDS(my_RF_TR, file_name)        
+    
+    } 
+    else if (RF_target$Mètode[i] == "Over") {
+      rare.class.prevalence = sum(as.numeric(training_set_cat_rf$target)-1)/nrow(training_set_cat_rf)
+      new_weight = min(0.9,rare.class.prevalence*RF_target$Paràmetre[i])
+      my_RF_TR <- randomForest(target ~ .,data = training_set_cat_rf, xtest = test_set_cat_rf[1:ncol(test_set_cat_rf)-1], ytest = test_set_cat_rf$target,
+                               ntree = RF_target$N.arbres[i], cutoff = c("0" = 1-new_weight, "1" = new_weight), keep.forest = TRUE)
+      
+      file_name <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', splitting, 'model', i, '_RF_','target',num,'.rds')
+      saveRDS(my_RF_TR, file_name)    
+    }
+  }
+}
+```
+
+### Training
+
+Preprocessing the data for each target and training the models for the different targets. 
+
+#### target_1
+
+Changing the name of target 1 to target and erasing other targets.
+
+```{r}
+target_name <- 'target_1'
+drop <- names(training_set_cont) %in% c("target_6", 'target_12', 'target_future')
+training_set_cont_target1 <- subset(training_set_cont, select = !drop)
+names(training_set_cont_target1)[names(training_set_cont_target1) == target_name] <- "target"
+
+drop <- names(training_set_cat) %in% c("target_6", 'target_12', 'target_future')
+training_set_cat_target1 <- subset(training_set_cat, select = !drop)
+names(training_set_cat_target1)[names(training_set_cat_target1) == target_name] <- "target"
+
+drop <- names(training_set_one) %in% c("target_6", 'target_12', 'target_future')
+training_set_one_target1 <- subset(training_set_one, select = !drop)
+names(training_set_one_target1)[names(training_set_one_target1) == target_name] <- "target"
+
+drop <- names(test_set_cont) %in% c("target_6", 'target_12', 'target_future')
+test_set_cont_target1 <- subset(test_set_cont, select = !drop)
+names(test_set_cont_target1)[names(test_set_cont_target1) == target_name] <- "target"
+
+drop <- names(test_set_cat) %in% c("target_6", 'target_12', 'target_future')
+test_set_cat_target1 <- subset(test_set_cat, select = !drop)
+names(test_set_cat_target1)[names(test_set_cat_target1) == target_name] <- "target"
+
+drop <- names(test_set_one) %in% c("target_6", 'target_12', 'target_future')
+test_set_one_target1 <- subset(test_set_one, select = !drop)
+names(test_set_one_target1)[names(test_set_one_target1) == target_name] <- "target"
+```
+
+Applying the balancing methods to the data.
+
+**Undersampling**
+
+Undersampling the majority class (0) until reaching the same number of observations as the minority class (1).
+
+```{r}
+training_set_cont_under_target1 <- ovun.sample(target ~ ., data = training_set_cont_target1, method = 'under', N = sum(training_set_cont_target1$target == 1)*2)$data
+training_set_cat_under_target1 <- ovun.sample(target ~ ., data = training_set_cat_target1, method = 'under', N = sum(training_set_cat_target1$target == 1)*2)$data
+training_set_one_under_target1 <- ovun.sample(target ~ ., data = training_set_one_target1, method = 'under', N = sum(training_set_one_target1$target == 1)*2)$data  
+```
+
+**Both **
+
+Combination of both oversampling and undersampling: the majority class is undersampled without replacement and the minority class is oversampled with replacement. In this case, the final total number of training rows is 1.3 times the original number of training rows.
+
+```{r}
+training_set_cont_both_target1 <- ovun.sample(target ~ ., data = training_set_cont_target1, method = 'over', N = c(sum(training_set_cont_target1$target == 0)*2))$data
+training_set_cat_both_target1 <- ovun.sample(target ~ ., data = training_set_cat_target1, method = 'over', N = c(sum(training_set_cat_target1$target == 0)*2))$data
+training_set_one_both_target1 <-  ovun.sample(target ~ ., data = training_set_one_target1, method = 'over', N = c(sum(training_set_one_target1$target == 0)*2))$data
+```
+
+**ROSE**
+
+Generating data synthetically providing a better estimate of original data.
+
+```{r}
+aux <- rbind(training_set_cont_target1, test_set_cont_target1)
+for (o in ordered_cont) {
+  index_o <- which(colnames(aux) == o)
+  aux[,index_o] <- as.factor(as.numeric((aux[,index_o])))
+}
+
+training_set_cont_ROSE_target1 <- aux[1:nrow(training_set_cont_target1),]
+test_set_cont_ROSE_target1 <- aux[(nrow(training_set_cont_target1)+1):nrow(aux),]
+training_set_cont_ROSE_target1 <- ROSE(target ~ ., data = training_set_cont_ROSE_target1)$data
+
+
+aux <- rbind(training_set_cat_target1, test_set_cat_target1)
+for (o in ordered_cat) {
+  index_o <- which(colnames(aux) == o)
+  aux[,index_o] <- as.factor(as.numeric((aux[,index_o])))
+}
+
+training_set_cat_ROSE_target1 <- aux[1:nrow(training_set_cat_target1),]
+test_set_cat_ROSE_target1 <- aux[(nrow(training_set_cat_target1)+1):nrow(aux),]
+training_set_cat_ROSE_target1 <- ROSE(target ~ ., data = training_set_cat_ROSE_target1)$data
+
+
+aux <- rbind(training_set_one_target1, test_set_one_target1)
+for (o in ordered_one) {
+  index_o <- which(colnames(aux) == o)
+  aux[,index_o] <- as.factor(as.numeric((aux[,index_o])))
+}
+
+training_set_one_ROSE_target1 <- aux[1:nrow(training_set_one_target1),]
+test_set_one_ROSE_target1 <- aux[(nrow(training_set_one_target1)+1):nrow(aux),]
+training_set_one_ROSE_target1 <- ROSE(target ~ ., data = training_set_one_ROSE_target1)$data
+```
+
+Calling **KSVM** function to train and save the models.
+
+```{r}
+KSVM(SVM_target_1, 1, training_set_cont_under_target1, training_set_cat_under_target1, training_set_one_under_target1, training_set_cont_ROSE_target1, training_set_catt_ROSE_target1, training_set_one_ROSE_target1,training_set_cont_both_target1,training_set_cat_both_target1,training_set_one_both_target1, splitting)
+```
+
+Calling **RDA** function to train and save the models.
+
+```{r}
+RDA(RDA_target_1, 1, training_set_cont_under_target1, training_set_cat_under_target1, training_set_one_under_target1, training_set_cont_ROSE_target1, training_set_catt_ROSE_target1, training_set_one_ROSE_target1, training_set_cat_target1, training_set_cont_target1, training_set_one_target1, splitting)
+```
+
+Defining ordinal variables as categorical. Otherwise, leads to error for next models.
+
+```{r}
+aux <- rbind(training_set_cat_target1, test_set_cat_target1)
+for (o in ordered_cat) {
+  index_o <- which(colnames(aux) == o)
+  aux[,index_o] <- as.factor(as.numeric((aux[,index_o])))
+}
+
+training_set_cat_rf_target1 <- aux[1:nrow(training_set_cat_target1),]
+test_set_cat_rf_target1 <- aux[(nrow(training_set_cat_target1)+1):nrow(aux),]
+
+training_set_cat_rf_target1$target <- as.factor(training_set_cat_target1$target)
+test_set_cat_rf_target1$target <- as.factor(test_set_cat_target1$target)
+```
+
+Calling the **RF** function that save the models.
+
+```{r}
+RF(RF_target_1, 1, training_set_cat_rf_target1, test_set_cat_rf_target1, splitting)
+```
+
+### target_6
+
+Changing the name of target 6 to target and erasing other targets.
+
+```{r}
+target_name <- 'target_6'
+drop <- names(training_set_cont) %in% c("target_1", 'target_12', 'target_future')
+training_set_cont_target6 <- subset(training_set_cont, select = !drop)
+names(training_set_cont_target6)[names(training_set_cont_target6) == target_name] <- "target"
+
+drop <- names(training_set_cat) %in% c("target_1", 'target_12', 'target_future')
+training_set_cat_target6 <- subset(training_set_cat, select = !drop)
+names(training_set_cat_target6)[names(training_set_cat_target6) == target_name] <- "target"
+
+drop <- names(training_set_one) %in% c("target_1", 'target_12', 'target_future')
+training_set_one_target6 <- subset(training_set_one, select = !drop)
+names(training_set_one_target6)[names(training_set_one_target6) == target_name] <- "target"
+
+drop <- names(test_set_cont) %in% c("target_1", 'target_12', 'target_future')
+test_set_cont_target6 <- subset(test_set_cont, select = !drop)
+names(test_set_cont_target6)[names(test_set_cont_target6) == target_name] <- "target"
+
+drop <- names(test_set_cat) %in% c("target_1", 'target_12', 'target_future')
+test_set_cat_target6 <- subset(test_set_cat, select = !drop)
+names(test_set_cat_target6)[names(test_set_cat_target6) == target_name] <- "target"
+
+drop <- names(test_set_one) %in% c("target_1", 'target_12', 'target_future')
+test_set_one_target6 <- subset(test_set_one, select = !drop)
+names(test_set_one_target6)[names(test_set_one_target6) == target_name] <- "target"
+```
+
+Applying the balancing methods to the data.
+
+**Undersampling**
+
+Undersampling the majority class (0) until reaching the same number of observations as the minority class (1).
+
+```{r}
+training_set_cont_under_target6 <- ovun.sample(target ~ ., data = training_set_cont_target6, method = 'under', N = sum(training_set_cont_target6$target == 1)*2)$data
+training_set_cat_under_target6 <- ovun.sample(target ~ ., data = training_set_cat_target6, method = 'under', N = sum(training_set_cat_target6$target == 1)*2)$data
+training_set_one_under_target6 <- ovun.sample(target ~ ., data = training_set_one_target6, method = 'under', N = sum(training_set_one_target6$target == 1)*2)$data
+```
+
+**Both **
+
+Combination of both oversampling and undersampling: the majority class is undersampled without replacement and the minority class is oversampled with replacement. In this case, the final total number of training rows is 1.3 times the original number of training rows.
+
+```{r}
+training_set_cont_both_target6 <- ovun.sample(target ~ ., data = training_set_cont_target6, method = 'over', N = c(sum(training_set_cont_target6$target == 0)*2))$data
+training_set_cat_both_target6 <- ovun.sample(target ~ ., data = training_set_cat_target6, method = 'over', N = c(sum(training_set_cat_target6$target == 0)*2))$data
+training_set_one_both_target6 <-  ovun.sample(target ~ ., data = training_set_one_target6, method = 'over', N = c(sum(training_set_one_target6$target == 0)*2))$data
+```
+
+**ROSE**
+
+Generating data synthetically providing a better estimate of original data.
+
+```{r}
+aux <- rbind(training_set_cont_target6, test_set_cont_target6)
+for (o in ordered_cont) {
+  index_o <- which(colnames(aux) == o)
+  aux[,index_o] <- as.factor(as.numeric((aux[,index_o])))
+}
+
+training_set_cont_ROSE_target6 <- aux[1:nrow(training_set_cont_target6),]
+test_set_cont_ROSE_target6 <- aux[(nrow(training_set_cont_target6)+1):nrow(aux),]
+training_set_cont_ROSE_target6 <- ROSE(target ~ ., data = training_set_cont_ROSE_target6)$data
+
+
+aux <- rbind(training_set_cat_target6, test_set_cat_target6)
+for (o in ordered_cat) {
+  index_o <- which(colnames(aux) == o)
+  aux[,index_o] <- as.factor(as.numeric((aux[,index_o])))
+}
+
+training_set_cat_ROSE_target6 <- aux[1:nrow(training_set_cat_target6),]
+test_set_cat_ROSE_target6 <- aux[(nrow(training_set_cat_target6)+1):nrow(aux),]
+training_set_cat_ROSE_target6 <- ROSE(target ~ ., data = training_set_cat_ROSE_target6)$data
+
+
+aux <- rbind(training_set_one_target6, test_set_one_target6)
+for (o in ordered_one) {
+  index_o <- which(colnames(aux) == o)
+  aux[,index_o] <- as.factor(as.numeric((aux[,index_o])))
+}
+
+training_set_one_ROSE_target6 <- aux[1:nrow(training_set_one_target6),]
+test_set_one_ROSE_target6 <- aux[(nrow(training_set_one_target6)+1):nrow(aux),]
+training_set_one_ROSE_target6 <- ROSE(target ~ ., data = training_set_one_ROSE_target6)$data
+```
+
+Calling **KSVM** function to train and save the models.
+
+```{r}
+KSVM(SVM_target_6,6,training_set_cont_under_target6,training_set_cat_under_target6,training_set_one_under_target6,training_set_cont_ROSE_target6,training_set_catt_ROSE_target6,training_set_one_ROSE_target6,training_set_cont_both_target6,training_set_cat_both_target6,training_set_one_both_target6,splitting )
+```
+
+Calling the **RDA** function that save the models.
+
+```{r}
+RDA(RDA_target_6,6,training_set_cont_under_target6,training_set_cat_under_target6,training_set_one_under_target6,training_set_cont_ROSE_target6,training_set_catt_ROSE_target6,training_set_one_ROSE_target6,training_set_cat_target6,training_set_cont_target6,training_set_one_target6,splitting)
+```
+
+Defining ordinal variables as categorical. Otherwise, leads to error for next models.
+
+```{r}
+aux <- rbind(training_set_cat_target6, test_set_cat_target6)
+for (o in ordered_cat) {
+  index_o <- which(colnames(aux) == o)
+  aux[,index_o] <- as.factor(as.numeric((aux[,index_o])))
+}
+
+training_set_cat_rf_target6 <- aux[1:nrow(training_set_cat_target6),]
+test_set_cat_rf_target6 <- aux[(nrow(training_set_cat_target6)+1):nrow(aux),]
+
+training_set_cat_rf_target6$target <- as.factor(training_set_cat_target6$target)
+test_set_cat_rf_target6$target <- as.factor(test_set_cat_target6$target)
+```
+
+Calling the **RF** function that save the models.
+
+```{r}
+RF(RF_target_6,6,training_set_cat_rf_target6,test_set_cat_rf_target6,splitting)
+```
+
+
+#### target_12
+
+Changing the name of target 12 to target and erasing other targets.
+
+```{r}
+target_name <- 'target_12'
+drop <- names(training_set_cont) %in% c("target_1", 'target_6', 'target_future')
+training_set_cont_target12 <- subset(training_set_cont, select = !drop)
+names(training_set_cont_target12)[names(training_set_cont_target12) == target_name] <- "target"
+
+drop <- names(training_set_cat) %in% c("target_1", 'target_6', 'target_future')
+training_set_cat_target12 <- subset(training_set_cat, select = !drop)
+names(training_set_cat_target12)[names(training_set_cat_target12) == target_name] <- "target"
+
+drop <- names(training_set_one) %in% c("target_1", 'target_6', 'target_future')
+training_set_one_target12 <- subset(training_set_one, select = !drop)
+names(training_set_one_target12)[names(training_set_one_target12) == target_name] <- "target"
+
+drop <- names(test_set_cont) %in% c("target_1", 'target_6', 'target_future')
+test_set_cont_target12 <- subset(test_set_cont, select = !drop)
+names(test_set_cont_target12)[names(test_set_cont_target12) == target_name] <- "target"
+
+drop <- names(test_set_cat) %in% c("target_1", 'target_6', 'target_future')
+test_set_cat_target12 <- subset(test_set_cat, select = !drop)
+names(test_set_cat_target12)[names(test_set_cat_target12) == target_name] <- "target"
+
+drop <- names(test_set_one) %in% c("target_1", 'target_6', 'target_future')
+test_set_one_target12 <- subset(test_set_one, select = !drop)
+names(test_set_one_target12)[names(test_set_one_target12) == target_name] <- "target"
+```
+
+Applying the balancing methods to the data.
+
+**Undersampling**
+
+Undersampling the majority class (0) until reaching the same number of observations as the minority class (1).
+
+```{r}
+training_set_cont_under_target12 <- ovun.sample(target ~ ., data = training_set_cont_target12, method = 'under', N = sum(training_set_cont_target12$target == 1)*2)$data
+training_set_cat_under_target12 <- ovun.sample(target ~ ., data = training_set_cat_target12, method = 'under', N = sum(training_set_cat_target12$target == 1)*2)$data
+training_set_one_under_target12 <- ovun.sample(target ~ ., data = training_set_one_target12, method = 'under', N = sum(training_set_one_target12$target == 1)*2)$data
+```
+
+**Both **z
+
+Combination of both oversampling and undersampling: the majority class is undersampled without replacement and the minority class is oversampled with replacement. In this case, the final total number of training rows is 1.3 times the original number of training rows.
+
+```{r}
+training_set_cont_both_target12 <- ovun.sample(target ~ ., data = training_set_cont_target12, method = 'over', N = c(sum(training_set_cont_target12$target == 0)*2))$data
+training_set_cat_both_target12 <- ovun.sample(target ~ ., data = training_set_cat_target12, method = 'over', N = c(sum(training_set_cat_target12$target == 0)*2))$data
+training_set_one_both_target12 <-  ovun.sample(target ~ ., data = training_set_one_target12, method = 'over', N = c(sum(training_set_one_target12$target == 0)*2))$data
+```
+
+**ROSE**
+
+Generating data synthetically providing a better estimate of original data.
+
+```{r}
+aux <- rbind(training_set_cont_target12, test_set_cont_target12)
+for (o in ordered_cont) {
+  index_o <- which(colnames(aux) == o)
+  aux[,index_o] <- as.factor(as.numeric((aux[,index_o])))
+}
+
+training_set_cont_ROSE_target12 <- aux[1:nrow(training_set_cont_target12),]
+test_set_cont_ROSE_target12 <- aux[(nrow(training_set_cont_target12)+1):nrow(aux),]
+training_set_cont_ROSE_target12 <- ROSE(target ~ ., data = training_set_cont_ROSE_target12)$data
+
+
+aux <- rbind(training_set_cat_target12, test_set_cat_target12)
+for (o in ordered_cat) {
+  index_o <- which(colnames(aux) == o)
+  aux[,index_o] <- as.factor(as.numeric((aux[,index_o])))
+}
+
+training_set_cat_ROSE_target12 <- aux[1:nrow(training_set_cat_target12),]
+test_set_cat_ROSE_target12 <- aux[(nrow(training_set_cat_target12)+1):nrow(aux),]
+training_set_cat_ROSE_target12 <- ROSE(target ~ ., data = training_set_cat_ROSE_target12)$data
+
+
+aux <- rbind(training_set_one_target12, test_set_one_target12)
+for (o in ordered_one) {
+  index_o <- which(colnames(aux) == o)
+  aux[,index_o] <- as.factor(as.numeric((aux[,index_o])))
+}
+
+training_set_one_ROSE_target12 <- aux[1:nrow(training_set_one_target12),]
+test_set_one_ROSE_target12 <- aux[(nrow(training_set_one_target12)+1):nrow(aux),]
+training_set_one_ROSE_target12 <- ROSE(target ~ ., data = training_set_one_ROSE_target12)$data 
+```
+
+Calling **KSVM** function to train and save the models.
+
+```{r}
+KSVM(SVM_target_12,12,training_set_cont_under_target12,training_set_cat_under_target12,training_set_one_under_target12,training_set_cont_ROSE_target12,training_set_catt_ROSE_target12,training_set_one_ROSE_target12,training_set_cont_both_target12,training_set_cat_both_target12,training_set_one_both_target12,splitting)
+```
+
+Calling **RDA** function to train and save the models.
+
+```{r}
+RDA(RDA_target_12,12,training_set_cont_under_target12,training_set_cat_under_target12,training_set_one_under_target12,training_set_cont_ROSE_target12,training_set_catt_ROSE_target12,training_set_one_ROSE_target12,training_set_cat_target12,training_set_cont_target12,training_set_one_target12,splitting)
+```
+
+Defining ordinal variables as categorical. Otherwise, leads to error for next models.
+
+```{r}
+aux <- rbind(training_set_cat_target12, test_set_cat_target12)
+for (o in ordered_cat) {
+  index_o <- which(colnames(aux) == o)
+  aux[,index_o] <- as.factor(as.numeric((aux[,index_o])))
+}
+
+training_set_cat_rf_target12 <- aux[1:nrow(training_set_cat_target12),]
+test_set_cat_rf_target12 <- aux[(nrow(training_set_cat_target12)+1):nrow(aux),]
+
+training_set_cat_rf_target12$target <- as.factor(training_set_cat_target12$target)
+test_set_cat_rf_target12$target <- as.factor(test_set_cat_target12$target)
+```
+
+Calling **RF** function to train and save the models.
+
+```{r}
+RF(RF_target_12,12,training_set_cat_rf_target12,test_set_cat_rf_target12,splitting)
+```
+
+#### target_future
+
+Changing the name of target future to target and erasing other targets.
+
+```{r}
+target_name <- 'target_future'
+drop <- names(training_set_cont) %in% c("target_1", 'target_6', 'target_12')
+training_set_cont_targetfuture <- subset(training_set_cont, select = !drop)
+names(training_set_cont_targetfuture)[names(training_set_cont_targetfuture) == target_name] <- "target"
+
+drop <- names(training_set_cat) %in% c("target_1", 'target_6', 'target_12')
+training_set_cat_targetfuture <- subset(training_set_cat, select = !drop)
+names(training_set_cat_targetfuture)[names(training_set_cat_targetfuture) == target_name] <- "target"
+
+drop <- names(training_set_one) %in% c("target_1", 'target_6', 'target_12')
+training_set_one_targetfuture <- subset(training_set_one, select = !drop)
+names(training_set_one_targetfuture)[names(training_set_one_targetfuture) == target_name] <- "target"
+
+drop <- names(test_set_cont) %in% c("target_1", 'target_6', 'target_12')
+test_set_cont_targetfuture <- subset(test_set_cont, select = !drop)
+names(test_set_cont_targetfuture)[names(test_set_cont_targetfuture) == target_name] <- "target"
+
+drop <- names(test_set_cat) %in% c("target_1", 'target_6', 'target_12')
+test_set_cat_targetfuture <- subset(test_set_cat, select = !drop)
+names(test_set_cat_targetfuture)[names(test_set_cat_targetfuture) == target_name] <- "target"
+
+drop <- names(test_set_one) %in% c("target_1", 'target_6', 'target_12')
+test_set_one_targetfuture <- subset(test_set_one, select = !drop)
+names(test_set_one_targetfuture)[names(test_set_one_targetfuture) == target_name] <- "target"
+```
+
+Applying the balancing methods to the data.
+
+**Undersampling**
+
+Undersampling the majority class (0) until reaching the same number of observations as the minority class (1).
+
+```{r}
+training_set_cont_under_targetfuture <- ovun.sample(target ~ ., data = training_set_cont_targetfuture, method = 'under', N = sum(training_set_cont_targetfuture$target == 1)*2)$data
+training_set_cat_under_targetfuture <- ovun.sample(target ~ ., data = training_set_cat_targetfuture, method = 'under', N = sum(training_set_cat_targetfuture$target == 1)*2)$data
+training_set_one_under_targetfuture <- ovun.sample(target ~ ., data = training_set_one_targetfuture, method = 'under', N = sum(training_set_one_targetfuture$target == 1)*2)$data 
+```
+
+**Both **
+
+Combination of both oversampling and undersampling: the majority class is undersampled without replacement and the minority class is oversampled with replacement. In this case, the final total number of training rows is 1.3 times the original number of training rows.
+
+```{r}
+training_set_cont_both_targetfuture <- ovun.sample(target ~ ., data = training_set_cont_targetfuture, method = 'over', N = c(sum(training_set_cont_targetfuture$target == 0)*2))$data
+training_set_cat_both_targetfuture <- ovun.sample(target ~ ., data = training_set_cat_targetfuture, method = 'over', N = c(sum(training_set_cat_targetfuture$target == 0)*2))$data
+training_set_one_both_targetfuture <-  ovun.sample(target ~ ., data = training_set_one_targetfuture, method = 'over', N = c(sum(training_set_one_targetfuture$target == 0)*2))$data
+```
+
+**ROSE**
+
+Generating data synthetically providing a better estimate of original data.
+
+```{r}
+aux <- rbind(training_set_cont_targetfuture, test_set_cont_targetfuture)
+for (o in ordered_cont) {
+  index_o <- which(colnames(aux) == o)
+  aux[,index_o] <- as.factor(as.numeric((aux[,index_o])))
+}
+
+training_set_cont_ROSE_targetfuture <- aux[1:nrow(training_set_cont_targetfuture),]
+test_set_cont_ROSE_targetfuture <- aux[(nrow(training_set_cont_targetfuture)+1):nrow(aux),]
+training_set_cont_ROSE_targetfuture <- ROSE(target ~ ., data = training_set_cont_ROSE_targetfuture)$data
+
+
+aux <- rbind(training_set_cat_targetfuture, test_set_cat_targetfuture)
+for (o in ordered_cat) {
+  index_o <- which(colnames(aux) == o)
+  aux[,index_o] <- as.factor(as.numeric((aux[,index_o])))
+}
+
+training_set_cat_ROSE_targetfuture <- aux[1:nrow(training_set_cat_targetfuture),]
+test_set_cat_ROSE_targetfuture <- aux[(nrow(training_set_cat_targetfuture)+1):nrow(aux),]
+training_set_cat_ROSE_targetfuture <- ROSE(target ~ ., data = training_set_cat_ROSE_targetfuture)$data
+
+
+aux <- rbind(training_set_one_targetfuture, test_set_one_targetfuture)
+for (o in ordered_one) {
+  index_o <- which(colnames(aux) == o)
+  aux[,index_o] <- as.factor(as.numeric((aux[,index_o])))
+}
+
+training_set_one_ROSE_targetfuture <- aux[1:nrow(training_set_one_targetfuture),]
+test_set_one_ROSE_targetfuture <- aux[(nrow(training_set_one_targetfuture)+1):nrow(aux),]
+training_set_one_ROSE_targetfuture <- ROSE(target ~ ., data = training_set_one_ROSE_targetfuture)$data  
+```
+
+Calling **KSVM** function to train and save the models.
+
+```{r}
+KSVM(SVM_target_future,'future',training_set_cont_under_targetfuture,training_set_cat_under_targetfuture,training_set_one_under_targetfuture,training_set_cont_ROSE_targetfuture,training_set_catt_ROSE_targetfuture,training_set_one_ROSE_targetfuture,training_set_cont_both_targetfuture,training_set_cat_both_targetfuture,training_set_one_both_targetfutur,splitting)
+```
+
+Calling **RDA** function to train and save the models.
+
+```{r}
+RDA(RDA_target_future,'future',training_set_cont_under_targetfuture,training_set_cat_under_targetfuture,training_set_one_under_targetfuture,training_set_cont_ROSE_targetfuture,training_set_catt_ROSE_targetfuture,training_set_one_ROSE_targetfuture,training_set_cat_targetfuture,training_set_cont_targetfuture,training_set_one_targetfuture,splitting)
+```
+
+Defining ordinal variables as categorical. Otherwise, leads to error for next models.
+
+```{r}
+aux <- rbind(training_set_cat_targetfuture, test_set_cat_targetfuture)
+for (o in ordered_cat) {
+  index_o <- which(colnames(aux) == o)
+  aux[,index_o] <- as.factor(as.numeric((aux[,index_o])))
+}
+
+training_set_cat_rf_targetfuture <- aux[1:nrow(training_set_cat_targetfuture),]
+test_set_cat_rf_targetfuture <- aux[(nrow(training_set_cat_targetfuture)+1):nrow(aux),]
+
+training_set_cat_rf_targetfuture$target <- as.factor(training_set_cat_targetfuture$target)
+test_set_cat_rf_targetfuture$target <- as.factor(test_set_cat_targetfuture$target)
+```
+
+Calling **RF** function to train and save the models.
+
+```{r}
+RF(RF_target_future,'future',training_set_cat_rf_targetfuture,test_set_cat_rf_targetfuture,splitting)
+```
+
+### Saving test data
+
+Creating the folder and saving all the test data.
+
+```{r}
+dir.create(file.path("../Results", "3. Final_models", "3.1. Training", "3.1.3. Test_data"), recursive = TRUE, showWarnings = FALSE)
+```
+
+```{r}
+if (splitting == 1){
+  saveRDS(test_set_cont, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cont_spl1.csv')
+  saveRDS(test_set_cat, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_spl1.csv')
+  saveRDS(test_set_one, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_one_spl1.csv')
+  
+  saveRDS(test_set_cont_ROSE_target1, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cont_ROSE_target1_spl1.csv')
+  saveRDS(test_set_cat_ROSE_target1, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_ROSE_target1_spl1.csv')
+  saveRDS(test_set_one_ROSE_target1, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_one_ROSE_target1_spl1.csv')
+  
+  saveRDS(test_set_cont_ROSE_target6, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cont_ROSE_target6_spl1.csv')
+  saveRDS(test_set_cat_ROSE_target6, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_ROSE_target6_spl1.csv')
+  saveRDS(test_set_one_ROSE_target6, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_one_ROSE_target6_spl1.csv')
+  
+  saveRDS(test_set_cont_ROSE_target12, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cont_ROSE_target12_spl1.csv')
+  saveRDS(test_set_cat_ROSE_target12, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_ROSE_target12_spl1.csv')
+  saveRDS(test_set_one_ROSE_target12, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_one_ROSE_target12_spl1.csv')
+  
+  saveRDS(test_set_cont_ROSE_targetfuture, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cont_ROSE_targetfuture_spl1.csv')
+  saveRDS(test_set_cat_ROSE_targetfuture, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_ROSE_targetfuture_spl1.csv')
+  saveRDS(test_set_one_ROSE_targetfuture, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_one_ROSE_targetfuture_spl1.csv')
+  
+  saveRDS(test_set_cat_rf_target1, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_rf_target1_spl1.csv')
+  saveRDS(test_set_cat_rf_target6, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_rf_target6_spl1.csv')
+  saveRDS(test_set_cat_rf_target12, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_rf_target12_spl1.csv')
+  saveRDS(test_set_cat_rf_targetfuture, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_rf_targetfuture_spl1.csv')
+}
+
+if (splitting == 2) {
+  saveRDS(test_set_cont, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cont_spl2.csv')
+  saveRDS(test_set_cat, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_spl2.csv')
+  saveRDS(test_set_one, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_one_spl2.csv')
+  
+  saveRDS(test_set_cont_ROSE_target1, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cont_ROSE_target1_spl2.csv')
+  saveRDS(test_set_cat_ROSE_target1, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_ROSE_target1_spl2.csv')
+  saveRDS(test_set_one_ROSE_target1, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_one_ROSE_target1_spl2.csv')
+  
+  saveRDS(test_set_cont_ROSE_target6, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cont_ROSE_target6_spl2.csv')
+  saveRDS(test_set_cat_ROSE_target6, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_ROSE_target6_spl2.csv')
+  saveRDS(test_set_one_ROSE_target6, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_one_ROSE_target6_spl2.csv')
+  
+  saveRDS(test_set_cont_ROSE_target12, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cont_ROSE_target12_spl2.csv')
+  saveRDS(test_set_cat_ROSE_target12, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_ROSE_target12_spl2.csv')
+  saveRDS(test_set_one_ROSE_target12, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_one_ROSE_target12_spl2.csv')
+  
+  saveRDS(test_set_cont_ROSE_targetfuture, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cont_ROSE_targetfuture_spl2.csv')
+  saveRDS(test_set_cat_ROSE_targetfuture, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_ROSE_targetfuture_spl2.csv')
+  saveRDS(test_set_one_ROSE_targetfuture, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_one_ROSE_targetfuture_spl2.csv')
+  
+  saveRDS(test_set_cat_rf_target1, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_rf_target1_spl2.csv')
+  saveRDS(test_set_cat_rf_target6, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_rf_target6_spl2.csv')
+  saveRDS(test_set_cat_rf_target12, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_rf_target12_spl2.csv')
+  saveRDS(test_set_cat_rf_targetfuture, file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_rf_targetfuture_spl2.csv')
+}
+```
+

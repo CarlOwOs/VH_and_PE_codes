@@ -1,0 +1,202 @@
+
+Loading of the required libraries.
+
+```{r echo = T, results = 'hide'}
+library(class)
+library(car)
+library(tables)
+library(RcmdrMisc)
+library(dplyr)
+library(naivebayes)
+library(splitstackshape)
+library(kernlab)
+library(MASS)
+library(klaR)
+library(nnet)
+library(caret)
+library(randomForest)
+library(nnet)
+library(rpart)
+library(cowplot)
+library(ROSE)
+library(DMwR2)
+library(AUC)
+library(ROCR)
+library(Metrics)
+```
+
+Selection of the data variant and internal data structure.
+
+```{r}
+data = "categorized"
+data_name = "factors_2_numbers_del"
+```
+
+Reading of the clean .csv file, droping columns with wrong formated values and converting the targets to factor.
+
+```{r}
+dd <- read.csv(paste0('../../Data/factors_2_numbers_del.csv'))
+drop <- names(dd) %in% c("mg_sacu_seguim", "nhc")
+dd <- subset(dd, select = !drop)
+targets <- c("target_1","target_6","target_12","target_future")
+dd[targets] <- lapply(dd[targets],factor)
+head(dd)
+```
+
+In this chunk of code, a list containing the categorical (and ordered) values present on our data frame is generated, taking into account the type of the original data frame.
+
+```{r}
+if (data != "onehot") { 
+  
+  categorical <- c('sexe','data_visita_year','data_visita_month','data_visita_week','data_visita_day','procedencia','motiu_derivacio___1','motiu_derivacio___2','motiu_derivacio___3','motiu_derivacio___4','motiu_derivacio___5','motiu_derivacio___6','motiu_derivacio___7','motiu_derivacio___8','etiologia___1','etiologia___2','etiologia___3','etiologia___4','etiologia___5','etiologia___6','etiologia___7','etiologia___8','etiologia___9','etiologia___10','etiologia___11','etiologia___12','etiologia___13','antecedents___1','antecedents___2','antecedents___3','antecedents___4','antecedents___5','antecedents___6','antecedents___7','antecedents___8','antecedents___9','antecedents___10','antecedents___11','antecedents___12','antecedents___21','antecedents___13','antecedents___14','antecedents___15','antecedents___16','antecedents___17','antecedents___20','neoplasia_estat','neoplasia_qt','tipus_iqprevia','insuf_mitral_seguim','ritme_base_seguim','trastorn_conduccio_t_v_1','marca','tto_ev_tipo___1','tto_ev_tipo___2','tto_ev_tipo___3','tto_ev_tipo___4','tto_ev_tipo___5','classe_funcional_seguim','ttm_seguim___8','ttm_seguim___9','ttm_seguim___10','ttm_seguim___11','ttm_seguim___12','ttm_seguim___13','ttm_seguim___14','ttm_seguim___15','ttm_seguim___16','ttm_seguim___17','ttm_seguim___18','ttm_seguim___20','ttm_seguim___21','ttm_seguim___23','ttm_seguim___24','ttm_seguim___25','ttm_seguim___26','ttm_seguim___27','ttm_seguim___28','ttm_seguim___29','ttm_seguim___30','ttm_seguim___33','mg_diur_segui','mg_tiaz_seguim','mg_anti_seguim','mg_ieca_seguim','mg_ara2_seguim','mg_beta_seguim','mg_islgt2_seguim','mg_naco_seguim','estacio_visita','IMC','mg_diur_segui')
+
+  ordered <- c('insuf_mitral_seguim','mg_tiaz_seguim','mg_anti_seguim','mg_ieca_seguim','mg_ara2_seguim','mg_beta_seguim','mg_islgt2_seguim','mg_naco_seguim','IMC','classe_funcional_seguim','mg_diur_segui')
+}
+```
+
+If the continuous data is binned, such columns are also added to a newer auxiliary list, to later on append them to the previous vectors created on the previous chunk.
+
+```{r}
+if (data == "categorized") { 
+  categorized <- c("feve_seguim", "dtdve_seguim", "tiv_seguim", "paret", "auricula_seguim", "temps_desac_seguim", 
+                 "tapse_seguim", "paps_seguim", "amplada_qrs_seguim", "hb_seguim", "ferritina_seguim", "sat_transf_seguim", "ha1c_seguim", "creat_seguim", "fge_seguim", 
+                 "urat_seguim", "sodi_seguim", "potassi_seguim", "cloro_seguim", "tni_seguim", "probnp_seguim", 
+                 "cole_seguim", "colehdl_segui", "coleldl_segui", "trigli_seguim", "prot_seguim", "albu_seguim", 
+                 "ca125_seguim", "st2_seguim", "prot_creorin_seguim", "albu_crorin_seguim",
+                 "ona_e_seguim", "ona_a_seguim", "ona_e_prima_seguim")
+  categorical <- c(categorical, categorized)
+  ordered <- c(ordered, categorized)
+}
+```
+
+
+```{r}
+for (c in categorical) {
+  index_c <- which(colnames(dd) == c)
+  dd[,index_c] <- as.factor(dd[,index_c])
+}
+```
+
+Establishing a seed to obtain replicable results when executing the code.
+
+```{r}
+set.seed(123)
+```
+
+Function that splits the available data into training and test partition. 70% of the data is used for training and the other 30% for testing. This partition is executed performing stratified sampling, which ensures that the values are selected maintaining the original data frame value proportion of the selected target.
+
+```{r}
+split_and_process = function (X, target_name){
+  training_set <- stratified(X, c("target_1", "target_6", "target_12", "target_future"), 0.7,replace = TRUE)
+  training_set = as.data.frame(training_set)
+  test_set <- setdiff(X, training_set)
+  test_set = as.data.frame(test_set)
+  
+  names(training_set)[names(training_set) == target_name] <- "target"
+  drop <- names(training_set) %in% c("target_1", "target_6", "target_12", "target_future")
+  training_set <- subset(training_set, select = !drop)
+  
+  names(test_set)[names(test_set) == target_name] <- "target"
+  drop <- names(test_set) %in% c("target_1", "target_6", "target_12", "target_future")
+  test_set <- subset(test_set, select = !drop)
+  
+  training_set = as.data.frame(training_set)
+  x = list()
+  x[[1]] = training_set
+  x[[2]] = test_set
+  return(x)
+}
+```
+
+Function that performs the training of the random forest model. Two variations of the algorithm are proposed. The first one modifies the "Cutoff" value, which consists in the number of trees that need to vote in favor to classify an observation as positive. The second one consists in applying oversampling, forcing that in the training data passed to the trees is the same for IC and NON-IC. Thus, the hyperparameters to modify consist in the voting threshold and the number of examples fed to the model.
+
+```{r}
+rf_training = function (train_data,test_data,mod_type,param_val, num_trees){
+  if (mod_type == "Cutoff"){
+    rare.class.prevalence = sum(as.numeric(train_data$target)-1)/nrow(train_data)
+    new_weight = min(0.9,rare.class.prevalence*param_val)
+    model = randomForest(target ~ .,data=train_data,xtest=test_data[1:ncol(test_data)-1],ytest=test_data$target, ntree=num_trees,cutoff=c("0" = 1-new_weight, "1" = new_weight),keep.forest= TRUE)
+  }
+  else if (mod_type == "Over"){
+    model = randomForest(target ~ .,data=train_data,xtest=test_data[1:ncol(test_data)-1],ytest=test_data$target, ntree=num_trees, sampsize = c("0" = param_val,"1" = param_val),keep.forest= TRUE)
+  }
+  return(model)
+}
+```
+
+Auxiliary function that obtains the evaluation metrics.
+
+```{r}
+err_fun <- function(confusion_matrix) {
+    Accuracy <- 100*(confusion_matrix[1]+confusion_matrix[4])/sum(confusion_matrix)
+    Sensitivity <- 100*(1-confusion_matrix[6])
+    Specificity <- 100*(1-confusion_matrix[5])
+  return(cbind(Accuracy, Sensitivity, Specificity))
+}
+```
+
+Evaluating the different hyperparameters combinations using 20-CV.
+
+```{r}
+m = 20
+#-------------------------
+metrics = data.frame()
+# "target_1", "target_6","target_12", "target_future"
+targets = c("target_1", "target_6","target_12", "target_future")
+#--------------------------
+models = c("Cutoff","Over")
+#--------------------------
+param_values = list()
+param_t1 = list()
+param_t1[[1]] = seq(1,2,0.1) # Cut-off weight
+param_t1[[2]] = seq(5,20,5) # Sampling size 
+#--------------------------
+param_t6 = list()
+param_t6[[1]] = seq(1,2,0.1) # Cut-off weight
+param_t6[[2]] = seq(10,30,5) # Sampling size 
+#--------------------------
+param_t12 = list()
+param_t12[[1]] = seq(1,2,0.1) # Cut-off weight
+param_t12[[2]] = seq(10,50,10) # Sampling size 
+#--------------------------
+param_future = param_t12
+#--------------------------
+param_values[[1]] = param_t1
+param_values[[2]] = param_t6
+param_values[[3]] = param_t12
+param_values[[4]] = param_future
+#--------------------------
+number_trees = c(1000)
+#--------------------------
+for (k in seq_along(targets)){
+  print(targets[k])
+  for (i in seq_along(models)){
+    for(param in param_values[[k]][[i]]){
+      print(param)
+      for (n_trees in number_trees){
+        acc = rep(0,m)
+        sens = rep(0,m)
+        spec = rep(0,m)
+        for (j in 1:m){
+          data_vect = split_and_process(dd,targets[k])
+          trained_model = rf_training(data_vect[[1]],data_vect[[2]],models[i],param,1000)
+          confusion_matrix = trained_model$test$confusion
+          validation_metrics = err_fun(confusion_matrix)
+          acc[j] = validation_metrics[1]
+          sens[j] = validation_metrics[2]
+          spec[j] = validation_metrics[3]
+        }
+      }
+      aux = cbind(data_name,models[i],param,n_trees,mean(acc),mean(sens),mean(spec),targets[k])
+      metrics = rbind(metrics,aux)
+    }
+  }
+}
+
+colnames(metrics) = c("Dades","Mètode","Paràmetre","N.arbres","Accuracy","Sensitivity","Specificity","Target")
+
+dir.create(file.path("../Results", "1. Cross_Validation", "1.3. RF"), recursive = TRUE,showWarnings = FALSE)
+
+file_name <- paste0('../Results/1. Cross_Validation/1.3. RF/RF_factors_2_numbers_del.csv')
+write.csv(metrics, file=file_name)
+```

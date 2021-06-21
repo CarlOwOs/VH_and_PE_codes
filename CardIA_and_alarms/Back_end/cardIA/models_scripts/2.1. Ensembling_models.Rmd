@@ -1,0 +1,993 @@
+---
+title: "R Notebook"
+output: ''
+---
+
+Implementing ensembling models and saving the results in a separate CSV for each target and partition used (different seed). The models used are:
+
+*   Regularized Discriminant Analysis (RDA).
+
+*   Kernelized Support Vector Machines (KSVM).
+
+*   Random Forest (RF).
+
+```{r}
+library(class)
+library(car)
+library(tables)
+library(RcmdrMisc)
+library(dplyr)
+library(MASS)
+library(klaR)
+library(splitstackshape)
+library(kernlab)
+library(rpart)
+library(caret)
+library(randomForest)
+library(ROSE)
+library(DMwR2)
+library(hrbrthemes)
+library(ggplot2)
+```
+
+### Parameters
+
+Parameters of the script:
+
+*   **target_name**: "target_1", "target_6", "target_12" or "target_future".
+
+*   **seed**: 123, 134, 145, 167, 178, 189, 211, 232, 367 or 455.
+
+*   **n_KSVM**: maximum number of KSVM models to be contemplated.
+
+*   **n_RDA**: maximum number of RDA models to be contemplated.
+
+*   **n_RF**: maximum number of RF models to be contemplated.
+
+*   **score_threshold**: minimum score to include a model as part of the ensembling process.
+
+```{r}
+target_name <- "target_future"
+n_KSVM <- 7
+n_RDA <- 4
+n_RF <- 2
+scrore_threshold <- 65
+seed <- 211
+set.seed(seed)
+```
+
+
+### Cross-validation (CV) results
+
+Importing output performance results after 3x3 CV over RDA, KSVM, and RF models, for the best-tuned hyperparameters. These correspond to the outputs of 'RDA.Rmd', 'KSVM.Rmd', and 'RF.Rmd'.
+
+```{r}
+KSVM_cont <- read.csv(paste0('../Results/1. Cross_validation/1.1. KSVM/', target_name, '_KSVM_factors_2_numbers_del_cont.csv'))[,-1]
+KSVM_cat <- read.csv(paste0('../Results/1. Cross_validation/1.1. KSVM/', target_name, '_KSVM_factors_2_numbers_del.csv'))[,-1]
+KSVM_one <- read.csv(paste0('../Results/1. Cross_validation/1.1. KSVM/', target_name, '_KSVM_onehot_del_cont.csv'))[,-1]
+
+RDA_cont <- read.csv(paste0('../Results/1. Cross_validation/1.2. RDA/', target_name, '_RDA_factors_2_numbers_del_cont.csv'))[,-1]
+RDA_cat <- read.csv(paste0('../Results/1. Cross_validation/1.2. RDA/', target_name, '_RDA_factors_2_numbers_del.csv'))[,-1]
+RDA_one <- read.csv(paste0('../Results/1. Cross_validation/1.2. RDA/', target_name, '_RDA_onehot_del_cont.csv'))[,-1]
+
+RF_cat <- read.csv(paste0('../Results/1. Cross_validation/1.3. RF/RF_factors_2_numbers_del.csv'))
+RF_cat <- RF_cat[RF_cat$Target==target_name, 1:ncol(RF_cat)-1]
+```
+
+**rda_best()**
+
+Function that given a maximum number of RDA models to be contemplated and a threshold of the minimum score to be included as part of the ensembling process, returns a decreasing data frame with the best combination of RDA models that may be included in the ensembling process (prior, data, and balancing method).
+
+```{r}
+rda_best <- function(n_RDA = 1, score_threshold = 75) {
+  RDA <- rbind(RDA_cont, RDA_cat, RDA_one)
+  RDA <- RDA[with(RDA, order(0.6*RDA[,"Sensitivity"]+0.4*RDA[,"Specificity"], decreasing = TRUE)), ]
+  RDA <- RDA[0.6*RDA[,"Sensitivity"] + 0.4*RDA[,"Specificity"] >= score_threshold,]
+  
+  x <- 0
+  i <- 1
+  best_RDA <- data.frame()
+  while (x < min(n_RDA, nrow(RDA))) {
+    if (! RDA[i, c("Data")] %in% best_RDA$Data || ! RDA[i, c("Balancing")] %in% best_RDA$Balancing) {
+      if (! is.na(RDA[i,]$Prior)) {best_RDA <- rbind(best_RDA, RDA[i, seq(4,ncol(RDA))]) }
+      x <- x+1
+    }
+    i <- i+1
+  }
+
+  return(best_RDA)
+}
+```
+
+Calling the above function.
+
+```{r}
+rda_best(4, score_threshold = scrore_threshold)
+```
+
+
+**KSVM_best()**
+
+Function that given a maximum number of KSVM models to be contemplated and a threshold of the minimum score to be included as part of the ensembling process, returns a decreasing data frame with the best combination of KSVM models that may be included in the ensembling process (C, degree, data, kernel, type, and balancing method).
+
+```{r}
+KSVM_best <- function(n_KSVM = 1, score_threshold = 75){
+  KSVM <- rbind(KSVM_cont, KSVM_cat, KSVM_one)
+  KSVM <- KSVM[with(KSVM, order(0.6*KSVM[,"Sensitivity"]+0.4*KSVM[,"Specificity"], decreasing = TRUE)), ]
+  KSVM <- KSVM[0.6*KSVM[,"Sensitivity"] + 0.4*KSVM[,"Specificity"] >= score_threshold,]
+
+  best_KSVM <- KSVM[seq(1, min(n_KSVM, nrow(KSVM))),seq(4,ncol(KSVM))]
+  return(best_KSVM)
+}
+```
+
+Calling the above function.
+
+```{r}
+KSVM_best(7, score_threshold = scrore_threshold)
+```
+
+
+**rf_best()**
+
+Function that given a maximum number of RF models to be contemplated and a threshold of the minimum score to be included as part of the ensembling process, returns a decreasing data frame with the best combination of RF models that may be included in the ensembling process (method, parameter, and number of trees).
+
+```{r}
+rf_best <- function(n_RF = 1, scrore_threshold = 75){
+  RF <- RF_cat[with(RF_cat, order(0.6*RF_cat[,"Sensitivity"]+0.4*RF_cat[,"Specificity"], decreasing = TRUE)), ]
+  RF <- RF[0.6*RF_cat[,"Sensitivity"] + 0.4*RF_cat[,"Specificity"] >= scrore_threshold,]
+
+  x <- 0
+  i <- 1
+  best_RF <- data.frame()
+  print(best_RF)
+  while (x < min(n_RF, nrow(RF))) {
+    if (! RF[i, c("Mètode")] %in% best_RF$Mètode) {
+      best_RF <- rbind(best_RF, RF[i, seq(3,ncol(RF))])
+      x <- x+1
+    }
+    i <- i+1
+  }
+  return(best_RF)
+}
+```
+
+Calling the above function.
+
+```{r}
+rf_best(n_RF = 2, scrore_threshold = scrore_threshold)
+```
+
+
+### Reading the data
+
+Reading continuous, categorized, and one hot data. Deleting some columns which values are incorrect or not useful for training the models.
+
+```{r}
+X_cont <- read.csv('../../Data/factors_2_numbers_del_cont.csv')
+X_cat <- read.csv('../../Data/factors_2_numbers_del.csv')
+X_one <- read.csv('../../Data/onehot_del_cont.csv')
+
+drop <- names(X_cont) %in% c("mg_sacu_seguim", "nhc")
+X_cont <- subset(X_cont, select = !drop)
+
+drop <- names(X_cat) %in% c("mg_sacu_seguim", "nhc")
+X_cat <- subset(X_cat, select = !drop)
+
+drop <- names(X_one) %in% c("mg_sacu_seguim", "nhc")
+X_one <- subset(X_one, select = !drop)
+```
+
+### Factors and ordinal variables
+
+Defining categorical variables as factors. The following vectors (categorical and ordered) contain the names of all categorical and ordinal variables.
+
+1. For non-one-hot data:
+
+```{r}
+categorical_cont <- c('sexe','data_visita_year','data_visita_month','data_visita_week','data_visita_day','procedencia','motiu_derivacio___1','motiu_derivacio___2','motiu_derivacio___3','motiu_derivacio___4','motiu_derivacio___5','motiu_derivacio___6','motiu_derivacio___7','motiu_derivacio___8','etiologia___1','etiologia___2','etiologia___3','etiologia___4','etiologia___5','etiologia___6','etiologia___7','etiologia___8','etiologia___9','etiologia___10','etiologia___11','etiologia___12','etiologia___13','antecedents___1','antecedents___2','antecedents___3','antecedents___4','antecedents___5','antecedents___6','antecedents___7','antecedents___8','antecedents___9','antecedents___10','antecedents___11','antecedents___12','antecedents___21','antecedents___13','antecedents___14','antecedents___15','antecedents___16','antecedents___17','antecedents___20','neoplasia_estat','neoplasia_qt','tipus_iqprevia','insuf_mitral_seguim','ritme_base_seguim','trastorn_conduccio_t_v_1','marca','tto_ev_tipo___1','tto_ev_tipo___2','tto_ev_tipo___3','tto_ev_tipo___4','tto_ev_tipo___5','classe_funcional_seguim','ttm_seguim___8','ttm_seguim___9','ttm_seguim___10','ttm_seguim___11','ttm_seguim___12','ttm_seguim___13','ttm_seguim___14','ttm_seguim___15','ttm_seguim___16','ttm_seguim___17','ttm_seguim___18','ttm_seguim___20','ttm_seguim___21','ttm_seguim___23','ttm_seguim___24','ttm_seguim___25','ttm_seguim___26','ttm_seguim___27','ttm_seguim___28','ttm_seguim___29','ttm_seguim___30','ttm_seguim___33','mg_diur_segui','mg_tiaz_seguim','mg_anti_seguim','mg_ieca_seguim','mg_ara2_seguim','mg_beta_seguim','mg_islgt2_seguim','mg_naco_seguim','estacio_visita','IMC','mg_diur_segui')
+
+ordered_cont <- c('insuf_mitral_seguim','mg_tiaz_seguim','mg_anti_seguim','mg_ieca_seguim','mg_ara2_seguim','mg_beta_seguim','mg_islgt2_seguim','mg_naco_seguim','IMC','classe_funcional_seguim','mg_diur_segui')
+```
+
+2. For categorized data:
+
+```{r}
+categorized_cat <- c("feve_seguim", "dtdve_seguim", "tiv_seguim", "paret", "auricula_seguim", "temps_desac_seguim", "tapse_seguim", "paps_seguim", "amplada_qrs_seguim", "hb_seguim",
+                     "ferritina_seguim", "sat_transf_seguim", "ha1c_seguim", "creat_seguim", "fge_seguim", "urat_seguim", "sodi_seguim", "potassi_seguim", "cloro_seguim", "tni_seguim",
+                     "probnp_seguim", "cole_seguim", "colehdl_segui", "coleldl_segui", "trigli_seguim", "prot_seguim", "albu_seguim", "ca125_seguim", "st2_seguim", "prot_creorin_seguim",
+                     "albu_crorin_seguim", "ona_e_seguim", "ona_a_seguim", "ona_e_prima_seguim")
+
+categorical_cat <- c(categorical_cont, categorized_cat)
+ordered_cat <- c(ordered_cont, categorized_cat)
+```
+
+3. For one-hot data:
+
+```{r}
+one_hot <- c()
+
+for (c in colnames(X_one)) {
+  if (length(unique(X_one[,c])) <= 2) {
+    one_hot <- c(one_hot, c)
+  }
+}
+  
+categorical_one <- c(one_hot, 'data_visita_year','data_visita_month','data_visita_week','data_visita_day','insuf_mitral_seguim','classe_funcional_seguim',
+                     'mg_diur_segui','mg_tiaz_seguim','mg_anti_seguim','mg_ieca_seguim','mg_ara2_seguim','mg_beta_seguim','mg_islgt2_seguim','mg_naco_seguim','IMC')
+ordered_one <- c('insuf_mitral_seguim','classe_funcional_seguim','mg_diur_segui','mg_tiaz_seguim','mg_anti_seguim','mg_ieca_seguim','mg_ara2_seguim','mg_beta_seguim',
+                 'mg_islgt2_seguim','mg_naco_seguim','IMC')
+```
+
+Defining categorical variables as "factors" and ordinal variables as "ordered". Otherwise, they would be interpreted as integers.
+
+```{r}
+for (c in categorical_cont) {
+  index_c <- which(colnames(X_cont) == c)
+  X_cont[,index_c] <- as.factor(X_cont[,index_c])
+}
+
+for (o in ordered_cont) {
+  index_o <- which(colnames(X_cont) == o)
+  X_cont[,index_o] <- as.ordered(X_cont[,index_o])
+}
+
+for (c in categorical_cat) {
+  index_c <- which(colnames(X_cat) == c)
+  X_cat[,index_c] <- as.factor(X_cat[,index_c])
+}
+
+for (o in ordered_cat) {
+  index_o <- which(colnames(X_cat) == o)
+  X_cat[,index_o] <- as.ordered(X_cat[,index_o])
+}
+
+for (c in categorical_one) {
+  index_c <- which(colnames(X_one) == c)
+  X_one[,index_c] <- as.factor(X_one[,index_c])
+}
+
+for (o in ordered_one) {
+  index_o <- which(colnames(X_one) == o)
+  X_one[,index_o] <- as.ordered(X_one[,index_o])
+}
+```
+
+
+### Stratified sampling
+
+Splitting the data into **0.7 training and 0.3 test**. Performing stratified sampling so the proportion of class members in the training and test sets is homogeneous for all target variables.
+
+```{r}
+index_c <- which(colnames(X_cont) %in% c("target_1", "target_6","target_12", "target_future"))
+```
+
+```{r}
+set.seed(seed)
+variables_cont <- X_cont[,-c(index_c)]
+training_set_cont <- as.data.frame(stratified(X_cont, c("target_1", "target_6","target_12", "target_future"), 0.7))
+test_set_cont <- as.data.frame(setdiff(X_cont, training_set_cont))
+
+set.seed(seed)
+variables_cat <- X_cat[,-c(index_c)]
+training_set_cat <- as.data.frame(stratified(X_cat, c("target_1", "target_6","target_12", "target_future"), 0.7))
+test_set_cat <- as.data.frame(setdiff(X_cat, training_set_cat))
+
+set.seed(seed)
+variables_one <- X_one[,-c(index_c)]
+training_set_one <- as.data.frame(stratified(X_one, c("target_1", "target_6","target_12", "target_future"), 0.7))
+test_set_one <- as.data.frame(setdiff(X_one, training_set_one))
+```
+
+Changing the name of the **target variable** in question to "target", and dropping other target variables.
+
+```{r}
+names(training_set_cont)[names(training_set_cont) == target_name] <- "target"
+drop <- names(training_set_cont) %in% c("target_1", "target_6", "target_12", "target_future")
+training_set_cont <- subset(training_set_cont, select = !drop)
+
+names(test_set_cont)[names(test_set_cont) == target_name] <- "target"
+drop <- names(test_set_cont) %in% c("target_1", "target_6", "target_12", "target_future")
+test_set_cont <- subset(test_set_cont, select = !drop)
+
+
+names(training_set_cat)[names(training_set_cat) == target_name] <- "target"
+drop <- names(training_set_cat) %in% c("target_1", "target_6", "target_12", "target_future")
+training_set_cat <- subset(training_set_cat, select = !drop)
+
+names(test_set_cat)[names(test_set_cat) == target_name] <- "target"
+drop <- names(test_set_cat) %in% c("target_1", "target_6", "target_12", "target_future")
+test_set_cat <- subset(test_set_cat, select = !drop)
+
+
+names(training_set_one)[names(training_set_one) == target_name] <- "target"
+drop <- names(training_set_one) %in% c("target_1", "target_6", "target_12", "target_future")
+training_set_one <- subset(training_set_one, select = !drop)
+
+names(test_set_one)[names(test_set_one) == target_name] <- "target"
+drop <- names(test_set_one) %in% c("target_1", "target_6", "target_12", "target_future")
+test_set_one <- subset(test_set_one, select = !drop)
+```
+
+Deleting binary categorical variables containing less than three values for one of the categories. Otherwise, it would lead to computational errors.
+
+```{r}
+name_columns_cont <- c()
+for (c in colnames(training_set_cont)) {
+  if(length(unique(training_set_cont[,c])) <= 2) {
+    repeticions <- sum(training_set_cont[,c] == unique(training_set_cont[,c])[1])
+    if (repeticions <= 2 || (nrow(training_set_cont)-repeticions) <= 2) {
+      name_columns_cont <- c(name_columns_cont, c)
+    }
+  }
+}
+
+drop <- (names(training_set_cont) %in% name_columns_cont)
+training_set_cont <- subset(training_set_cont, select = !drop)
+test_set_cont <- subset(test_set_cont, select = !drop)
+
+
+name_columns_cat <- c()
+for (c in colnames(training_set_cat)) {
+  if(length(unique(training_set_cat[,c])) <= 2) {
+    repeticions <- sum(training_set_cat[,c] == unique(training_set_cat[,c])[1])
+    if (repeticions <= 2 || (nrow(training_set_cat)-repeticions) <= 2) {
+      name_columns_cat <- c(name_columns_cat, c)
+    }
+  }
+}
+
+drop <- (names(training_set_cat) %in% name_columns_cat)
+training_set_cat <- subset(training_set_cat, select = !drop)
+test_set_cat <- subset(test_set_cat, select = !drop)
+
+
+name_columns_one <- c()
+for (c in colnames(training_set_one)) {
+  if(length(unique(training_set_one[,c])) <= 2) {
+    repeticions <- sum(training_set_one[,c] == unique(training_set_one[,c])[1])
+    if (repeticions <= 2 || (nrow(training_set_one)-repeticions) <= 2) {
+      name_columns_one <- c(name_columns_one, c)
+    }
+  }
+}
+
+drop <- (names(training_set_one) %in% name_columns_one)
+training_set_one <- subset(training_set_one, select = !drop)
+test_set_one <- subset(test_set_one, select = !drop)
+```
+
+
+### Data standardization
+
+Standardizing numerical variables to force them to have 0 mean and 1 standard deviation (sd). The standardization of the test set is performed with the same mean and sd of the training set.
+
+```{r}
+numerical_cont <- !(colnames(training_set_cont) %in% categorical_cont)
+numerical_cont[length(numerical_cont)] <- FALSE
+normParam_cont <- preProcess(training_set_cont[, numerical_cont])
+training_set_num_cont <- predict(normParam_cont, training_set_cont[, numerical_cont])
+test_set_num_cont <- predict(normParam_cont, test_set_cont[, numerical_cont])
+
+training_set_cont[, numerical_cont] <- data.frame(scale(training_set_num_cont))
+test_set_cont[, numerical_cont] <- data.frame(test_set_num_cont)
+
+
+numerical_cat <- !(colnames(training_set_cat) %in% categorical_cat)
+numerical_cat[length(numerical_cat)] <- FALSE
+normParam_cat <- preProcess(training_set_cat[, numerical_cat])
+training_set_num_cat <- predict(normParam_cat, training_set_cat[, numerical_cat])
+test_set_num_cat <- predict(normParam_cat, test_set_cat[, numerical_cat])
+
+training_set_cat[, numerical_cat] <- data.frame(scale(training_set_num_cat))
+test_set_cat[, numerical_cat] <- data.frame(test_set_num_cat)
+
+
+numerical_one <- !(colnames(training_set_one) %in% categorical_one)
+numerical_one[length(numerical_one)] <- FALSE
+normParam_one <- preProcess(training_set_one[, numerical_one])
+training_set_num_one <- predict(normParam_one, training_set_one[, numerical_one])
+test_set_num_one <- predict(normParam_one, test_set_one[, numerical_one])
+
+training_set_one[, numerical_one] <- data.frame(scale(training_set_num_one))
+test_set_one[, numerical_one] <- data.frame(test_set_num_one)
+```
+
+
+### Balancing mtehods
+
+**Undersampling**
+
+Undersampling the majority class (0) until reaching the same number of observations as the minority class (1).
+
+```{r}
+set.seed(seed)
+training_set_cont_under <- ovun.sample(target ~ ., data = training_set_cont, method = 'under', N = sum(training_set_cont$target == 1)*2)$data
+training_set_cat_under <- ovun.sample(target ~ ., data = training_set_cat, method = 'under', N = sum(training_set_cat$target == 1)*2)$data
+training_set_one_under <- ovun.sample(target ~ ., data = training_set_one, method = 'under', N = sum(training_set_one$target == 1)*2)$data
+```
+
+**Both **
+
+Combination of both oversampling and undersampling: the majority class is undersampled without replacement and the minority class is oversampled with replacement. In this case, the final total number of training rows is 1.3 times the original number of training rows.
+
+```{r}
+training_set_cont_both <- ovun.sample(target ~ ., data = training_set_cont, method = 'over', N = c(sum(training_set_cont$target == 0)*2))$data
+training_set_cat_both <- ovun.sample(target ~ ., data = training_set_cat, method = 'over', N = c(sum(training_set_cat$target == 0)*2))$data
+training_set_one_both <-  ovun.sample(target ~ ., data = training_set_one, method = 'over', N = c(sum(training_set_one$target == 0)*2))$data
+```
+
+**ROSE**
+
+Generating data synthetically providing a better estimate of original data.
+
+```{r}
+set.seed(seed)
+aux <- rbind(training_set_cont, test_set_cont)
+for (o in ordered_cont) {
+  index_o <- which(colnames(aux) == o)
+  aux[,index_o] <- as.factor(as.numeric((aux[,index_o])))
+}
+
+training_set_cont_ROSE <- aux[1:nrow(training_set_cont),]
+test_set_cont_ROSE <- aux[(nrow(training_set_cont)+1):nrow(aux),]
+training_set_cont_ROSE <- ROSE(target ~ ., data = training_set_cont_ROSE)$data
+
+
+aux <- rbind(training_set_cat, test_set_cat)
+for (o in ordered_cat) {
+  index_o <- which(colnames(aux) == o)
+  aux[,index_o] <- as.factor(as.numeric((aux[,index_o])))
+}
+
+training_set_cat_ROSE <- aux[1:nrow(training_set_cat),]
+test_set_cat_ROSE <- aux[(nrow(training_set_cat)+1):nrow(aux),]
+training_set_cat_ROSE <- ROSE(target ~ ., data = training_set_cat_ROSE)$data
+
+
+aux <- rbind(training_set_one, test_set_one)
+for (o in ordered_one) {
+  index_o <- which(colnames(aux) == o)
+  aux[,index_o] <- as.factor(as.numeric((aux[,index_o])))
+}
+
+training_set_one_ROSE <- aux[1:nrow(training_set_one),]
+test_set_one_ROSE <- aux[(nrow(training_set_one)+1):nrow(aux),]
+training_set_one_ROSE <- ROSE(target ~ ., data = training_set_one_ROSE)$data
+```
+
+### Calculating the errors
+
+**err_fun()**
+
+Function that given a confusion matrix, extracts and returns three evaluation metrics in a data frame:
+
+(1) Accuracy (that is, the proportion of correctly predicted classes out of all the validation data points). 
+(2) Sensitivity (that is, the proportion of 1's which are correctly classified as 1's). 
+(3) Specificity (that is, the proportion of 0's which are correctly classified as 0's).
+
+```{r}
+err_fun <- function(confusion_matrix) {
+  if (length(confusion_matrix) == 4) {
+    Accuracy <- 100*(confusion_matrix[1]+confusion_matrix[4])/sum(confusion_matrix)
+    Sensitivity <- 100*(confusion_matrix[4])/(confusion_matrix[3]+confusion_matrix[4])
+    Specificity <- 100*(confusion_matrix[1])/(confusion_matrix[1]+confusion_matrix[2])
+  } else if (rownames(confusion_matrix) == 0) {
+    Accuracy <- confusion_matrix[1]/sum(confusion_matrix)*100
+    Sensitivity <- 0
+    Specificity <- 100
+  } else if (rownames(confusion_matrix) == 1) {
+    Accuracy <- confusion_matrix[2]/sum(confusion_matrix)*100
+    Sensitivity <- 100
+    Specificity <- 0
+  }
+  
+  return(cbind(Accuracy, Sensitivity, Specificity))
+}
+```
+
+
+### Final classification ML models
+
+Definition of KSVM_results(), RDA_results(), and RF_results() functions used to train and validate KSVM, RDA and RF models.
+
+#### KSVM
+
+**KSVM_results()**
+
+Function that given a data frame with the best hyperparameters for KSVM (obtained with CV), and the number of best KSVM to implement, trains and validates the KSVM models. Returns a list with the scores for each model, the class probabilities, and the classes.
+
+```{r}
+KSVM_results <- function(best_KSVM, number_SVM) {
+  set.seed(seed)
+  KSVM_probabilities <- c()
+  KSVM_scores <- c()
+  KSVM_classes <- c()
+  
+  for (i in 1:number_SVM) {
+    if (best_KSVM$Data[i] == "factors_2_numbers_del_cont.csv") {
+      if (best_KSVM$Balancing[i] == "under") {
+        my.KSVM.TR <- ksvm(target ~ ., data = training_set_cont_under, type = as.character(best_KSVM$Type[i]), kernel = as.character(best_KSVM$Kernel[i]), C =  best_KSVM$C[i], prob.model = TRUE)
+        fit_prob_i <- predict(my.KSVM.TR, newdata = test_set_cont, type="probabilities")[,2]
+      }
+      else if (best_KSVM$Balancing[i] == "baseline") {
+        my.KSVM.TR <- ksvm(target ~ ., data = training_set_cont, type = as.character(best_KSVM$Type[i]), kernel = as.character(best_KSVM$Kernel[i]), C =  best_KSVM$C[i], prob.model = TRUE)
+        fit_prob_i <- predict(my.KSVM.TR, newdata = test_set_cont, type="probabilities")[,2]
+      }
+      else if (best_KSVM$Balancing[i] == "ROSE") {
+        my.KSVM.TR <- ksvm(target ~ ., data = training_set_cont_ROSE, type = as.character(best_KSVM$Type[i]), kernel = as.character(best_KSVM$Kernel[i]), C =  best_KSVM$C[i], prob.model = TRUE)
+        fit_prob_i <- predict(my.KSVM.TR, newdata = test_set_cont_ROSE, type="probabilities")[,2]
+      }
+      else if(best_KSVM$Balancing[i] == "both") {
+        my.KSVM.TR <- ksvm(target ~ ., data = training_set_cont_both, type = as.character(best_KSVM$Type[i]), kernel = as.character(best_KSVM$Kernel[i]), C =  best_KSVM$C[i], prob.model = TRUE)
+        fit_prob_i <- predict(my.KSVM.TR, newdata = test_set_cont, type="probabilities")[,2]
+      }
+    }
+    else if (best_KSVM$Data[i] == "factors_2_numbers_del.csv") {
+      if (best_KSVM$Balancing[i] == "under") {
+        my.KSVM.TR <- ksvm(target ~ ., data = training_set_cat_under, type = as.character(best_KSVM$Type[i]), kernel = as.character(best_KSVM$Kernel[i]), C =  best_KSVM$C[i], prob.model = TRUE)
+        fit_prob_i <- predict(my.KSVM.TR, newdata = test_set_cat, type="probabilities")[,2]
+      }
+      else if (best_KSVM$Balancing[i] == "baseline") {
+        my.KSVM.TR <- ksvm(target ~ ., data = training_set_cat, type = as.character(best_KSVM$Type[i]), kernel = as.character(best_KSVM$Kernel[i]), C =  best_KSVM$C[i], prob.model = TRUE)
+        fit_prob_i <- predict(my.KSVM.TR, newdata = test_set_cat, type="probabilities")[,2]
+      }
+      else if (best_KSVM$Balancing[i] == "ROSE") {
+        my.KSVM.TR <- ksvm(target ~ ., data = training_set_cat_ROSE, type = as.character(best_KSVM$Type[i]), kernel = as.character(best_KSVM$Kernel[i]), C =  best_KSVM$C[i], prob.model = TRUE)
+        fit_prob_i <- predict(my.KSVM.TR, newdata = test_set_cat_ROSE, type="probabilities")[,2]
+      }
+      else if(best_KSVM$Balancing[i] == "both") {
+        my.KSVM.TR <- ksvm(target ~ ., data = training_set_cont_both, type = as.character(best_KSVM$Type[i]), kernel = 
+                             as.character(best_KSVM$Kernel[i]), C =  best_KSVM$C[i], prob.model = TRUE)
+        fit_prob_i <- predict(my.KSVM.TR, newdata = test_set_cont, type="probabilities")[,2]
+      }      
+    }
+  
+    else if (best_KSVM$Data[i] == "onehot_del_cont.csv") {
+      if (best_KSVM$Balancing[i] == "under") {
+        my.KSVM.TR <- ksvm(target ~ ., data = training_set_one_under, type = as.character(best_KSVM$Type[i]), kernel = as.character(best_KSVM$Kernel[i]), C =  best_KSVM$C[i], prob.model = TRUE)
+        fit_prob_i <- predict(my.KSVM.TR, newdata = test_set_one, type="probabilities")[,2]
+    }
+      else if (best_KSVM$Balancing[i] == "baseline") {
+        my.KSVM.TR <- ksvm(target ~ ., data = training_set_one, type = as.character(best_KSVM$Type[i]), kernel = as.character(best_KSVM$Kernel[i]), C =  best_KSVM$C[i], prob.model = TRUE)
+        fit_prob_i <- predict(my.KSVM.TR, newdata = test_set_one, type="probabilities")[,2]
+    }
+      else if (best_KSVM$Balancing[i] == "ROSE") {
+        my.KSVM.TR <- ksvm(target ~ ., data = training_set_one_ROSE, type = as.character(best_KSVM$Type[i]), kernel = as.character(best_KSVM$Kernel[i]), C =  best_KSVM$C[i], prob.model = TRUE)
+        fit_prob_i <- predict(my.KSVM.TR, newdata = test_set_one_ROSE, type="probabilities")[,2]
+      }
+       else if(best_KSVM$Balancing[i] == "both") {
+        my.KSVM.TR <- ksvm(target ~ ., data = training_set_cont_both, type = as.character(best_KSVM$Type[i]), kernel = 
+                             as.character(best_KSVM$Kernel[i]), C =  best_KSVM$C[i], prob.model = TRUE)
+        fit_prob_i <- predict(my.KSVM.TR, newdata = test_set_cont, type="probabilities")[,2]
+      }       
+    }
+  
+    # Calculating classes, performance, and score for model model "i"
+    KSVM_classes_i <- sapply(fit_prob_i, function(x) {if (x >= 0.5) return (1) else return(0)})
+    KSVM_performance_i <- err_fun(table(predicted = KSVM_classes_i, actual = test_set_cont$target))
+    fit_score_i <- unname((0.6*KSVM_performance_i[,2]+0.4*KSVM_performance_i[,3])/100)
+
+    # Storing score, probabilities, and classes for model "i"
+    KSVM_scores <- cbind(KSVM_scores, fit_score_i)
+    KSVM_probabilities <- cbind(KSVM_probabilities, fit_prob_i)
+    KSVM_classes <- cbind(KSVM_classes, KSVM_classes_i)
+  }
+
+  return(list("Scores" = KSVM_scores, "Probabilities" = KSVM_probabilities, "Classes"= KSVM_classes))
+}
+```
+
+```{r}
+my.KSVM.TR <- ksvm(target ~ ., data = training_set_one, type = 'C-svc', kernel = 'rbfdot', C =  1, prob.model = TRUE)
+fit_prob_i <- predict(my.KSVM.TR, newdata = test_set_one, type="probabilities")[,2]
+```
+
+#### RDA
+
+**RDA_results()**
+
+Function that given a data frame with the best hyperparameters for RDA (obtained with CV), and the number of best RDA to implement, trains, and validates the RDA models. Returns a list with the scores for each model, the class probabilities, and the classes.
+
+```{r}
+RDA_results <- function(best_RDA, number_RDA) {
+  set.seed(seed)
+  RDA_probabilities <- c()
+  RDA_scores <- c()
+  RDA_classes <- c()
+  index_cont <- which(colnames(test_set_cont)=="target")
+  index_cat<- which(colnames(test_set_cat)=="target")
+  index_one <- which(colnames(test_set_one)=="target")
+
+  for (i in 1:number_RDA) {
+    if (best_RDA$Data[i] == "factors_2_numbers_del_cont.csv") {
+        if (best_RDA$Balancing[i] == "under") {
+          my.rda.TR <- rda(target ~ ., data = training_set_cont_under, p = c(1-best_RDA$Prior[i], best_RDA$Prior[i]))
+          fit_prob_i <- predict(my.rda.TR, newdata = test_set_cont[,-c(index_cont)], type = "probs")$posterior[,2]
+        }
+        else if (best_RDA$Balancing[i] == "baseline") {
+          my.rda.TR <- rda(target ~ ., data = training_set_cont, p = c(1-best_RDA$Prior[i], best_RDA$Prior[i]))
+          fit_prob_i <- predict(my.rda.TR, newdata = test_set_cont[,-c(index_cont)], type = "probs")$posterior[,2]
+        } 
+        else if (best_RDA$Balancing[i] == "ROSE") {
+          my.rda.TR <- rda(target ~ ., data = training_set_cont_ROSE, p = c(1-best_RDA$Prior[i], best_RDA$Prior[i]))
+          fit_prob_i <- predict(my.rda.TR, newdata = test_set_cont_ROSE[,-c(index_cont)], type = "probs")$posterior[,2]
+        } 
+        else if (best_RDA$Balancing[i] == "both"){
+          my.rda.TR <- rda(target ~ ., data = training_set_cont_both, p = c(1-best_RDA$Prior[i], best_RDA$Prior[i]))
+          fit_prob_i <- predict(my.rda.TR, newdata = test_set_cont[,-c(index_cont)], type = "probs")$posterior[,2]          
+        }
+    } 
+  
+    else if (best_RDA$Data[i] == "factors_2_numbers_del.csv") {
+        if (best_RDA$Balancing[i] == "under") {
+          my.rda.TR <- rda(target ~ ., data = training_set_cat_under, p = c(1-best_RDA$Prior[i], best_RDA$Prior[i]))
+          fit_prob_i <- predict(my.rda.TR, newdata = test_set_cat[,-c(index_cat)], type = "probs")$posterior[,2]
+        }
+        else if (best_RDA$Balancing[i] == "baseline") {
+          my.rda.TR <- rda(target ~ ., data = training_set_cat, p = c(1-best_RDA$Prior[i], best_RDA$Prior[i]))
+          fit_prob_i <- predict(my.rda.TR, newdata = test_set_cat[,-c(index_cat)], type = "probs")$posterior[,2]
+        } 
+        else if (best_RDA$Balancing[i] == "ROSE") {
+          my.rda.TR <- rda(target ~ ., data = training_set_cat_ROSE, p = c(1-best_RDA$Prior[i], best_RDA$Prior[i]))
+          fit_prob_i <- predict(my.rda.TR, newdata = test_set_cat_ROSE[,-c(index_cat)], type = "probs")$posterior[,2]
+        }
+        else if (best_RDA$Balancing[i] == "both"){
+          my.rda.TR <- rda(target ~ ., data = training_set_cont_both, p = c(1-best_RDA$Prior[i], best_RDA$Prior[i]))
+          fit_prob_i <- predict(my.rda.TR, newdata = test_set_cont[,-c(index_cont)], type = "probs")$posterior[,2]          
+        }
+      
+    }
+    else if (best_RDA$Data[i] == "onehot_del_cont.csv") {
+      if (best_RDA$Balancing[i] == "under") {
+        my.rda.TR <- rda(target ~ ., data = training_set_one_under, p = c(1-best_RDA$Prior[i], best_RDA$Prior[i]))
+        fit_prob_i <- predict(my.rda.TR, newdata = test_set_one[,-c(index_one)], type = "probs")$posterior[,2]
+      }
+      else if (best_RDA$Balancing[i] == "baseline") {
+        my.rda.TR <- rda(target ~ ., data = training_set_one, p = c(1-best_RDA$Prior[i], best_RDA$Prior[i]))
+        fit_prob_i <- predict(my.rda.TR, newdata = test_set_one[,-c(index_one)], type = "probs")$posterior[,2]
+      } 
+      else if (best_RDA$Balancing[i] == "ROSE") {
+        my.rda.TR <- rda(target ~ ., data = training_set_one_ROSE, p = c(1-best_RDA$Prior[i], best_RDA$Prior[i]))
+        fit_prob_i <- predict(my.rda.TR, newdata = test_set_one_ROSE[,-c(index_one)], type = "probs")$posterior[,2]
+      }
+      else if (best_RDA$Balancing[i] == "both"){
+        my.rda.TR <- rda(target ~ ., data = training_set_cont_both, p = c(1-best_RDA$Prior[i], best_RDA$Prior[i]))
+        fit_prob_i <- predict(my.rda.TR, newdata = test_set_cont[,-c(index_cont)], type = "probs")$posterior[,2]          
+      }
+    }
+    
+    # Treating NA's in the prediction, corresponding to 1 class
+    fit_prob_i <- sapply(fit_prob_i, function(x) {if (is.na(x)) return (1) else return(x)})
+  
+    # Calculating classes, performance, and score for model model "i"
+    RDA_classes_i <- sapply(fit_prob_i, function(x) {if (x >= 0.5) return (1) else return(0)})
+    RDA_performance_i <- err_fun(table(predicted = RDA_classes_i, actual = test_set_cont$target))
+    fit_score_i <- unname((0.6*RDA_performance_i[,2]+0.4*RDA_performance_i[,3])/100)
+  
+    # Storing score, probabilities, and classes for model "i"
+    RDA_scores <- cbind(RDA_scores, fit_score_i)
+    RDA_probabilities <- cbind(RDA_probabilities, fit_prob_i)
+    RDA_classes <- cbind(RDA_classes, RDA_classes_i)
+  }
+
+  return(list("Scores" = RDA_scores, "Probabilities" = RDA_probabilities, "Classes" = RDA_classes))
+}
+```
+
+### RF
+
+Defining ordinal variables as categorical. Otherwise, leads to error for next models.
+
+```{r}
+aux <- rbind(training_set_cat, test_set_cat)
+for (o in ordered_cat) {
+  index_o <- which(colnames(aux) == o)
+  aux[,index_o] <- as.factor(as.numeric((aux[,index_o])))
+}
+
+training_set_cat_rf <- aux[1:nrow(training_set_cat),]
+test_set_cat_rf <- aux[(nrow(training_set_cat)+1):nrow(aux),]
+
+training_set_cat_rf$target <- as.factor(training_set_cat$target)
+test_set_cat_rf$target <- as.factor(test_set_cat$target)
+```
+
+**RF_results()**
+
+Function that given a data frame with the best hyperparameters for RF (obtained with CV), and the number of best RF to implement, trains, and validates the RF models. Returns a list with the scores for each model, the class probabilities, and the classes.
+
+```{r}
+RF_results <- function(best_RF, number_RF) {
+  set.seed(seed)
+  RF_probabilities <- c()
+  RF_scores <- c()
+  RF_classes <- c()
+
+  for (i in 1:number_RF) {
+    if (best_RF$Mètode[i] == "Cutoff") {
+      rare.class.prevalence = sum(as.numeric(training_set_cat_rf$target)-1)/nrow(training_set_cat_rf)
+      new_weight <- min(0.9, rare.class.prevalence*best_RF$Paràmetre[i])
+      my.RF.TR <- randomForest(target ~ .,data=training_set_cat_rf, xtest=test_set_cat_rf[1:ncol(test_set_cat_rf)-1],ytest = test_set_cat_rf$target,
+                               ntree = best_RF$N.arbres[i], cutoff=c("0" = 1-new_weight, "1" = new_weight),keep.forest= TRUE)
+    
+      fit_prob_i <- predict(my.RF.TR, newdata = test_set_cat_rf)
+    }
+    else if (best_RF$Mètode[i] == "Over") {
+      rare.class.prevalence = sum(as.numeric(training_set_cat_rf$target)-1)/nrow(training_set_cat_rf)
+      new_weight = min(0.9,rare.class.prevalence*best_RF$Paràmetre[i])
+      my.RF.TR <- randomForest(target ~ .,data=training_set_cat_rf,xtest=test_set_cat_rf[1:ncol(test_set_cat_rf)-1],ytest = test_set_cat_rf$target,
+                               ntree = best_RF$N.arbres[i], cutoff=c("0" = 1-new_weight, "1" = new_weight), keep.forest= TRUE)
+    
+      fit_prob_i <- predict(my.RF.TR, newdata = test_set_cat_rf, type="response")
+    }
+  
+    # Calculating classes, performance, and score for model model "i"
+    # Changing class 2 by 0 (class 1 = 1).
+    fit_prob_i <- sapply(fit_prob_i, function(x) {if (x == 1) return (1) else return(0)})
+    RF_performance_i <- err_fun(table(predicted = fit_prob_i, actual = test_set_cat_rf$target))
+    fit_score_i <- unname((0.6*RF_performance_i[,2]+0.4*RF_performance_i[,3])/100)
+
+    # Storing score, probabilities, and classes for model "i"
+    RF_scores <- cbind(RF_scores, fit_score_i)
+    RF_probabilities <- cbind(RF_probabilities, fit_prob_i)
+    RF_classes <- cbind(RF_classes, fit_prob_i)
+  }
+  
+  return(list("Scores" = RF_scores, "Probabilities" = RF_probabilities, "Classes" = RF_classes))
+}
+```
+
+
+### Ensembling methods 
+
+Implementing two ensembling methods:
+
+1. **Rank averaging**
+
+2. **Majority "by number"**
+
+
+#### Rank averaging
+
+**rank_averaging()**
+
+Function that given the scores and probabilities of RDA, KSVM, and RF models, returns probabilities after performing rank averaging. Rank averaging consists of weighing the probabilities. First, joins and sorts the scores of the models (in a way that the indexes are not lost). Then, divides the position of each score in the ranking by the total sum of positions. Finally, multiplies these weights by the probabilities.
+
+```{r}
+rank_averaging <- function(rda_i, ksvm_i, rf_i, number_SVM, number_RDA, number_RF) {
+  RDA_scores <- rda_i$Scores
+  RDA_probabilities <- rda_i$Probabilities
+  
+  KSVM_scores <- ksvm_i$Scores
+  KSVM_probabilities <- ksvm_i$Probabilities
+  
+  RF_scores <- rf_i$Scores
+  RF_probabilities <- rf_i$Probabilities
+  
+  if (number_SVM == 1 & number_RDA == 0 & number_RF == 0) {
+    total_probabilities <- cbind(KSVM_probabilities)
+    total_scores <- c(KSVM_scores)
+  } else if (number_SVM == 0 & number_RDA == 1 & number_RF == 0) {
+    total_probabilities <- cbind(RDA_probabilities)
+    total_scores <- c(RDA_scores)
+  } else if (number_SVM == 0 & number_RDA == 0 & number_RF == 1) {
+    total_probabilities <- cbind(RF_probabilities)
+    total_scores <- c(RF_scores)
+  } else if (number_SVM == 1 & number_RDA == 1 & number_RF == 0) {
+    total_probabilities <- cbind(RDA_probabilities, KSVM_probabilities)
+    total_scores <- c(RDA_scores, KSVM_scores)
+  } else if (number_SVM == 0 & number_RDA == 1 & number_RF == 1) {
+    total_probabilities <- cbind(RDA_probabilities, RF_probabilities)
+    total_scores <- c(RDA_scores, RF_scores) 
+  } else if (number_SVM == 1 & number_RDA == 0 & number_RF == 1) {
+    total_probabilities <- cbind(KSVM_probabilities, RF_probabilities)
+    total_scores <- c(KSVM_scores, RF_scores) 
+  } else {
+    total_probabilities <- cbind(RDA_probabilities, KSVM_probabilities, RF_probabilities)
+    total_scores <- c(RDA_scores, KSVM_scores, RF_scores)
+  }
+  
+  order_scores <- order(total_scores, decreasing = TRUE)
+  
+  # Extracting rank positions
+  result <- c()
+  j <- 1
+  for (i in order_scores) {
+    result[i] <- j
+    j <- j+1
+  }
+  
+  # Normalizing  weights according to ranking positions
+  result <- result/sum(result)
+  
+  # Rank averaging the probabilities
+  for (col in 1:ncol(total_probabilities)) {
+    total_probabilities[,col] <- result[col]*total_probabilities[,col]
+  }
+  final_probabilities <- rowSums(total_probabilities)
+  
+  return(final_probabilities)
+}
+```
+
+
+**different_thresholds()**
+
+Function that given a vector of probabilities returns a data frame with performance results using different thresholds, giving more weight to one of the two classes.
+
+```{r}
+different_thresholds <- function(final_probabilities){
+  performance_rank <- data.frame()
+  thresholds <- seq(0, 1, 0.05)
+
+  for (threshold in thresholds) {
+    final_classes <- sapply(final_probabilities, function(x) {if (x >= threshold) return (1) else return(0)})
+    confusion_matrix <- table(predicted = final_classes, actual = test_set_cont$target)
+    performance_rank <- rbind(performance_rank, err_fun(confusion_matrix))
+  }
+
+  performance_rank$Threshold <- thresholds
+  performance_rank$Ensembling <- "Rank averaging"
+  
+  return(performance_rank)
+}
+```
+
+
+### Majority "by number"
+
+**majority_number()**
+
+Function that given the scores and probabilities of RDA, KSVM, and RF models, returns probabilities after performing majority "by number". First, sums the total number of ones in the three models. Then, uses different thresholds to take the majority (if the number of ones is bigger than or equal the threshold -> class = 1, if not -> class = 0.
+
+```{r}
+majority_number <- function(rda_i, ksvm_i, rf_i, number_SVM, number_RDA, number_RF) {
+  RDA_classes <- rda_i$Classes
+  KSVM_classes <- ksvm_i$Classes
+  RF_classes <- rf_i$Classes
+  len <- length(test_set_cont$target)
+  
+  if (number_RDA == 0) {
+    RDA_conf <- rep(0, len)
+  } else if (number_RDA == 1) {
+    RDA_conf <- RDA_classes
+  } else {
+    RDA_conf <- rowSums(RDA_classes)
+  }
+  
+  if (number_SVM == 0) {
+    KSVM_conf <- rep(0, len)
+  } else if (number_SVM == 1) {
+    KSVM_conf <- KSVM_classes
+  } else {
+    KSVM_conf <- rowSums(KSVM_classes)
+  }
+  
+  if (number_RF == 0) {
+    RF_conf <- rep(0, len)
+  } else if (number_RF == 1) {
+    RF_conf <- RF_classes
+  } else {
+    RF_conf <- rowSums(RF_classes)
+  }
+  
+  total_sum_conf <- RDA_conf + KSVM_conf + RF_conf
+  
+  numbers <- seq(1, number_RDA + number_SVM + number_RF)
+  performance_majority <- c()
+
+  for (number in numbers) {
+    final_classes <- sapply(total_sum_conf, function(x) {if (x >= number) return (1) else return(0)})
+    confusion_matrix <- table(predicted = final_classes, actual = test_set_cont$target)
+    performance_majority <- rbind(performance_majority, err_fun(confusion_matrix))
+  }
+  
+  performance_majority <- as.data.frame(performance_majority)
+  performance_majority$Threshold <- numbers
+  performance_majority$Ensembling <- "Majority by number"
+
+  return(performance_majority)
+}
+```
+
+
+### Hyperparameter tuning
+
+Performing hyperparameter tuning to find the optimal numbers of KSVM, RDA, and RF to include in the ensemble.
+Searching the best KSVM, RDA and RF models from the outputs of 'KSVM.Rmd', 'RDA.Rmd', and 'RF.Rmd'. 
+
+```{r}
+best_RDA <- rda_best(n_RDA, scrore_threshold)
+best_KSVM <- KSVM_best(n_KSVM, scrore_threshold)
+best_RF <- rf_best(n_RF, scrore_threshold)
+```
+
+Saving the former data frames to later import them in 'final_models.Rmd'. The hyperparameters save are:
+
+*   Prior, Data, Model, and Balancing for RDA.
+
+*   C, Degree, Data, Kernel, Type, and Balancing for KSVM.
+
+*   Method, Parameter, and Number of trees for RF.
+
+```{r}
+dir.create(file.path("../Results", "2. Ensembling_models", "2.1. Best_models"), recursive = TRUE,showWarnings = FALSE)
+
+file_name_SVM <- paste0('../Results/2. Ensembling_models/2.1. Best_models/','KSVM_', target_name, '.csv')
+file_name_RDA <- paste0('../Results/2. Ensembling_models/2.1. Best_models/','RDA_', target_name, '.csv')
+file_name_RF <- paste0('../Results/2. Ensembling_models/2.1. Best_models/','RF_', target_name, '.csv')
+
+write.csv(best_KSVM, file = file_name_SVM)
+write.csv(best_RDA, file = file_name_RDA)
+write.csv(best_RF[1:3], file = file_name_RF)
+```
+
+Training top RDA, KSVM and RF models. 
+
+```{r}
+rda_results <- RDA_results(best_RDA, nrow(best_RDA))
+KSVM_results <- KSVM_results(best_KSVM, nrow(best_KSVM))
+rf_results <- RF_results(best_RF, nrow(best_RF))
+```
+
+Studying all combinations of number of KSVM, RDA and RF taken. Storing performance results for each, after implementing rank averaging and majority "by number".
+
+```{r}
+rda_i <- c()
+ksvm_i <- c()
+rf_i <- c()
+performance_rank <- data.frame()
+performance_majority <- data.frame()
+
+for (number_RDA in seq(0, nrow(best_RDA))) {
+  for (number_SVM in seq(0, nrow(best_KSVM))) {
+    for (number_RF in seq(0, nrow(best_RF))) {
+      if (number_RDA == 0 & number_SVM == 0 & number_RF == 0) {
+        
+      } else {
+        rda_i$Scores <- cbind(rda_results$Scores[1:number_RDA])
+        rda_i$Probabilities <- cbind(rda_results$Probabilities[,1:number_RDA])
+        rda_i$Classes <- cbind(rda_results$Classes[,1:number_RDA])
+        
+        ksvm_i$Scores <- cbind(KSVM_results$Scores[1:number_SVM])
+        ksvm_i$Probabilities <- cbind(KSVM_results$Probabilities[,1:number_SVM])
+        ksvm_i$Classes <- cbind(KSVM_results$Classes[,1:number_SVM])
+        
+        rf_i$Scores <- cbind(rf_results$Scores[1:number_RF])
+        rf_i$Probabilities <- cbind(rf_results$Probabilities[,1:number_RF])
+        rf_i$Classes <- cbind(rf_results$Classes[,1:number_RF])
+        
+        rank_averaging_i <- rank_averaging(rda_i, ksvm_i, rf_i, number_SVM, number_RDA, number_RF)
+        performance_rank_i <- cbind(different_thresholds(rank_averaging_i), number_SVM, number_RDA, number_RF)
+        performance_majority_i <- cbind(majority_number(rda_i, ksvm_i, rf_i, number_SVM, number_RDA, number_RF), number_SVM, number_RDA, number_RF)
+        
+        performance_rank <- rbind(performance_rank, performance_rank_i)
+        performance_majority <- rbind(performance_majority, performance_majority_i)
+      }
+    }
+  }
+}
+```
+
+#### Saving the results
+
+Saving performance results.
+
+```{r}
+dir.create(file.path("../Results", "2. Ensembling_models", "2.1. Ensembling_seeds"), recursive = TRUE,showWarnings = FALSE)
+
+file_name <- paste0('../Results/2. Ensembling_models/2.1. Ensembling_seeds/', target_name, '_seed_', seed, '_rank.csv')
+write.csv(performance_rank, file = file_name)
+
+file_name <- paste0('../Results/2. Ensembling_models/2.1. Ensembling_seeds/', target_name, '_seed_', seed, '_majority.csv')
+write.csv(performance_majority, file = file_name)
+```
+
+Printing performance results.
+
+```{r}
+performance_rank
+performance_majority
+```
+

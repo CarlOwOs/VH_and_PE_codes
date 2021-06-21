@@ -1,0 +1,1670 @@
+---
+title: "testing_final_models"
+output: ''
+---
+
+The objective of this script is to compute the predictions. 
+
+```{r}
+library(class)
+library(car)
+library(tables)
+library(RcmdrMisc)
+library(dplyr)
+library(MASS)
+library(klaR)
+library(splitstackshape)
+library(kernlab)
+library(rpart)
+library(caret)
+library(randomForest)
+library(ROSE)
+library(DMwR2)
+```
+
+### Parameters
+
+Parameters of the script:
+
+*   Seed: 433
+
+```{r}
+seed <- 433
+```
+
+
+### Read the test data
+
+Importing the test data, for each target and split. 
+
+**Split 1**
+
+```{r}
+test_set_cont_spl1 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cont_spl1.csv')
+test_set_cat_spl1 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_spl1.csv')
+test_set_one_spl1 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_one_spl1.csv')
+
+test_set_cont_ROSE_target1_spl1 <- readRDS(file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cont_ROSE_target1_spl1.csv')
+test_set_cat_ROSE_target1_spl1 <- readRDS(file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_ROSE_target1_spl1.csv')
+test_set_one_ROSE_target1_spl1 <- readRDS(file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_one_ROSE_target1_spl1.csv')
+
+test_set_cont_ROSE_target6_spl1 <- readRDS(file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cont_ROSE_target6_spl1.csv')
+test_set_cat_ROSE_target6_spl1 <- readRDS(file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_ROSE_target6_spl1.csv')
+test_set_one_ROSE_target6_spl1 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_one_ROSE_target6_spl1.csv')
+  
+test_set_cont_ROSE_target12_spl1 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cont_ROSE_target12_spl1.csv')
+test_set_cat_ROSE_target12_spl1 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_ROSE_target12_spl1.csv')
+test_set_one_ROSE_target12_spl1 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_one_ROSE_target12_spl1.csv')
+
+test_set_cont_ROSE_targetfuture_spl1 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cont_ROSE_targetfuture_spl1.csv')
+test_set_cat_ROSE_targetfuture_spl1 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_ROSE_targetfuture_spl1.csv')
+test_set_one_ROSE_targetfuture_spl1 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_one_ROSE_targetfuture_spl1.csv')
+
+test_set_cont_spl1 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cont_spl1.csv')
+test_set_cat_spl1 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_spl1.csv')
+test_set_one_spl1 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_one_spl1.csv')
+
+test_set_cont_ROSE_target1_spl1 <- readRDS(file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cont_ROSE_target1_spl1.csv')
+test_set_cat_ROSE_target1_spl1 <- readRDS(file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_ROSE_target1_spl1.csv')
+test_set_one_ROSE_target1_spl1 <- readRDS(file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_one_ROSE_target1_spl1.csv')
+
+test_set_cont_ROSE_target6_spl1 <- readRDS(file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cont_ROSE_target6_spl1.csv')
+test_set_cat_ROSE_target6_spl1 <- readRDS(file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_ROSE_target6_spl1.csv')
+test_set_one_ROSE_target6_spl1 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_one_ROSE_target6_spl1.csv')
+  
+test_set_cont_ROSE_target12_spl1 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cont_ROSE_target12_spl1.csv')
+test_set_cat_ROSE_target12_spl1 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_ROSE_target12_spl1.csv')
+test_set_one_ROSE_target12_spl1 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_one_ROSE_target12_spl1.csv')
+
+test_set_cont_ROSE_targetfuture_spl1 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cont_ROSE_targetfuture_spl1.csv')
+test_set_cat_ROSE_targetfuture_spl1 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_ROSE_targetfuture_spl1.csv')
+test_set_one_ROSE_targetfuture_spl1 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_one_ROSE_targetfuture_spl1.csv')
+
+test_set_cat_rf_target1_spl1 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_rf_target1_spl1.csv')
+test_set_cat_rf_target6_spl1 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_rf_target6_spl1.csv')
+test_set_cat_rf_target12_spl1 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_rf_target12_spl1.csv')
+test_set_cat_rf_targetfuture_spl1 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_rf_targetfuture_spl1.csv')
+```
+
+**Split 2**
+
+```{r}
+test_set_cont_spl2 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cont_spl2.csv')
+test_set_cat_spl2 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_spl2.csv')
+test_set_one_spl2 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_one_spl2.csv')
+
+test_set_cont_ROSE_target1_spl2 <- readRDS(file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cont_ROSE_target1_spl2.csv')
+test_set_cat_ROSE_target1_spl2 <- readRDS(file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_ROSE_target1_spl2.csv')
+test_set_one_ROSE_target1_spl2 <- readRDS(file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_one_ROSE_target1_spl2.csv')
+
+test_set_cont_ROSE_target6_spl2 <- readRDS(file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cont_ROSE_target6_spl2.csv')
+test_set_cat_ROSE_target6_spl2 <- readRDS(file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_ROSE_target6_spl2.csv')
+test_set_one_ROSE_target6_spl2 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_one_ROSE_target6_spl2.csv')
+  
+test_set_cont_ROSE_target12_spl2 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cont_ROSE_target12_spl2.csv')
+test_set_cat_ROSE_target12_spl2 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_ROSE_target12_spl2.csv')
+test_set_one_ROSE_target12_spl2 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_one_ROSE_target12_spl2.csv')
+
+test_set_cont_ROSE_targetfuture_spl2 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cont_ROSE_targetfuture_spl2.csv')
+test_set_cat_ROSE_targetfuture_spl2 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_ROSE_targetfuture_spl2.csv')
+test_set_one_ROSE_targetfuture_spl2 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_one_ROSE_targetfuture_spl2.csv')
+
+test_set_cont_spl2 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cont_spl2.csv')
+test_set_cat_spl2 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_spl2.csv')
+test_set_one_spl2 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_one_spl2.csv')
+
+test_set_cont_ROSE_target1_spl2 <- readRDS(file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cont_ROSE_target1_spl2.csv')
+test_set_cat_ROSE_target1_spl2 <- readRDS(file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_ROSE_target1_spl2.csv')
+test_set_one_ROSE_target1_spl2 <- readRDS(file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_one_ROSE_target1_spl2.csv')
+
+test_set_cont_ROSE_target6_spl2 <- readRDS(file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cont_ROSE_target6_spl2.csv')
+test_set_cat_ROSE_target6_spl2 <- readRDS(file = '../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_ROSE_target6_spl2.csv')
+test_set_one_ROSE_target6_spl2 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_one_ROSE_target6_spl2.csv')
+  
+test_set_cont_ROSE_target12_spl2 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cont_ROSE_target12_spl2.csv')
+test_set_cat_ROSE_target12_spl2 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_ROSE_target12_spl2.csv')
+test_set_one_ROSE_target12_spl2 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_one_ROSE_target12_spl2.csv')
+
+test_set_cont_ROSE_targetfuture_spl2 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cont_ROSE_targetfuture_spl2.csv')
+test_set_cat_ROSE_targetfuture_spl2 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_ROSE_targetfuture_spl2.csv')
+test_set_one_ROSE_targetfuture_spl2 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_one_ROSE_targetfuture_spl2.csv')
+
+test_set_cat_rf_target1_spl2 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_rf_target1_spl2.csv')
+test_set_cat_rf_target6_spl2 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_rf_target6_spl2.csv')
+test_set_cat_rf_target12_spl2 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_rf_target12_spl2.csv')
+test_set_cat_rf_targetfuture_spl2 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.3. Test_data/test_set_cat_rf_targetfuture_spl2.csv')
+```
+
+### Reading best models
+
+Importing the CSV's that contain the best hyperparameters for each target and model. 
+
+```{r}
+RDA_target_1 <- read.csv('../Results/2. Ensembling_models/2.1. Best_models/RDA_target_1.csv')
+RDA_target_6 <- read.csv('../Results/2. Ensembling_models/2.1. Best_models/RDA_target_6.csv')
+RDA_target_12 <- read.csv('../Results/2. Ensembling_models/2.1. Best_models/RDA_target_12.csv')    
+RDA_target_future <- read.csv('../Results/2. Ensembling_models/2.1. Best_models/RDA_target_future.csv')
+
+RF_target_1 <- read.csv('../Results/2. Ensembling_models/2.1. Best_models/RF_target_1.csv')
+RF_target_6 <- read.csv('../Results/2. Ensembling_models/2.1. Best_models/RF_target_6.csv')
+RF_target_12 <- read.csv('../Results/2. Ensembling_models/2.1. Best_models/RF_target_12.csv')
+RF_target_future <- read.csv('../Results/2. Ensembling_models/2.1. Best_models/RF_target_future.csv')
+
+SVM_target_1 <- read.csv('../Results/2. Ensembling_models/2.1. Best_models/KSVM_target_1.csv')
+SVM_target_6 <- read.csv('../Results/2. Ensembling_models/2.1. Best_models/KSVM_target_6.csv')
+SVM_target_12 <- read.csv('../Results/2. Ensembling_models/2.1. Best_models/KSVM_target_12.csv')
+SVM_target_future <- read.csv('../Results/2. Ensembling_models/2.1. Best_models/KSVM_target_future.csv')
+```
+
+
+### Reading nhc
+
+Importing the ID of the patients of the two splits.
+
+```{r}
+nhc_spl1 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.1. Patients_ID/nhc_spl1.csv')
+nhc_spl2 <- readRDS('../Results/3. Final_models/3.1. Training/3.1.1. Patients_ID/nhc_spl2.csv')
+```
+
+
+# Preprocesing the test data for each target and split.
+
+## TARGET 1
+
+Taking target 1 and erasing the others.
+
+**Split 1**
+
+```{r}
+target_name <- 'target_1'
+
+drop <- names(test_set_cont_spl1) %in% c("target_6", 'target_12', 'target_future')
+test_set_cont_target1_spl1 <- subset(test_set_cont_spl1, select = !drop)
+names(test_set_cont_target1_spl1)[names(test_set_cont_target1_spl1) == target_name] <- "target"
+
+drop <- names(test_set_cat_spl1) %in% c("target_6", 'target_12', 'target_future')
+test_set_cat_target1_spl1 <- subset(test_set_cat_spl1, select = !drop)
+names(test_set_cat_target1_spl1)[names(test_set_cat_target1_spl1) == target_name] <- "target"
+
+drop <- names(test_set_one_spl1) %in% c("target_6", 'target_12', 'target_future')
+test_set_one_target1_spl1 <- subset(test_set_one_spl1, select = !drop)
+names(test_set_one_target1_spl1)[names(test_set_one_target1_spl1) == target_name] <- "target"
+```
+
+**Split 2**
+
+```{r}
+drop <- names(test_set_cont_spl2) %in% c("target_6", 'target_12', 'target_future')
+test_set_cont_target1_spl2 <- subset(test_set_cont_spl2, select = !drop)
+names(test_set_cont_target1_spl2)[names(test_set_cont_target1_spl2) == target_name] <- "target"
+
+drop <- names(test_set_cat_spl2) %in% c("target_6", 'target_12', 'target_future')
+test_set_cat_target1_spl2 <- subset(test_set_cat_spl2, select = !drop)
+names(test_set_cat_target1_spl2)[names(test_set_cat_target1_spl2) == target_name] <- "target"
+
+drop <- names(test_set_one_spl2) %in% c("target_6", 'target_12', 'target_future')
+test_set_one_target1_spl2 <- subset(test_set_one_spl2, select = !drop)
+names(test_set_one_target1_spl2)[names(test_set_one_target1_spl2) == target_name] <- "target"
+```
+
+## TARGET 6
+
+Taking target 6 and erasing the others.
+
+**Split 1**
+
+```{r}
+target_name <- 'target_6'
+
+drop <- names(test_set_cont_spl1) %in% c("target_1", 'target_12', 'target_future')
+test_set_cont_target6_spl1 <- subset(test_set_cont_spl1, select = !drop)
+names(test_set_cont_target6_spl1)[names(test_set_cont_target6_spl1) == target_name] <- "target"
+
+drop <- names(test_set_cat_spl1) %in% c("target_1", 'target_12', 'target_future')
+test_set_cat_target6_spl1 <- subset(test_set_cat_spl1, select = !drop)
+names(test_set_cat_target6_spl1)[names(test_set_cat_target6_spl1) == target_name] <- "target"
+
+drop <- names(test_set_one_spl1) %in% c("target_1", 'target_12', 'target_future')
+test_set_one_target6_spl1 <- subset(test_set_one_spl1, select = !drop)
+names(test_set_one_target6_spl1)[names(test_set_one_target6_spl1) == target_name] <- "target"
+```
+
+**Split 2**
+
+```{r}
+drop <- names(test_set_cont_spl2) %in% c("target_1", 'target_12', 'target_future')
+test_set_cont_target6_spl2 <- subset(test_set_cont_spl2, select = !drop)
+names(test_set_cont_target6_spl2)[names(test_set_cont_target6_spl2) == target_name] <- "target"
+
+drop <- names(test_set_cat_spl2) %in% c("target_1", 'target_12', 'target_future')
+test_set_cat_target6_spl2 <- subset(test_set_cat_spl2, select = !drop)
+names(test_set_cat_target6_spl2)[names(test_set_cat_target6_spl2) == target_name] <- "target"
+
+drop <- names(test_set_one_spl2) %in% c("target_1", 'target_12', 'target_future')
+test_set_one_target6_spl2 <- subset(test_set_one_spl2, select = !drop)
+names(test_set_one_target6_spl2)[names(test_set_one_target6_spl2) == target_name] <- "target"
+```
+
+
+## TARGET 12
+
+Taking target 12 and erasing the others.
+
+**Split 1**
+
+```{r}
+target_name <- 'target_12'
+
+drop <- names(test_set_cont_spl1) %in% c("target_1", 'target_6', 'target_future')
+test_set_cont_target12_spl1 <- subset(test_set_cont_spl1, select = !drop)
+names(test_set_cont_target12_spl1)[names(test_set_cont_target12_spl1) == target_name] <- "target"
+
+drop <- names(test_set_cat_spl1) %in% c("target_1", 'target_6', 'target_future')
+test_set_cat_target12_spl1 <- subset(test_set_cat_spl1, select = !drop)
+names(test_set_cat_target12_spl1)[names(test_set_cat_target12_spl1) == target_name] <- "target"
+
+drop <- names(test_set_one_spl1) %in% c("target_1", 'target_6', 'target_future')
+test_set_one_target12_spl1 <- subset(test_set_one_spl1, select = !drop)
+names(test_set_one_target12_spl1)[names(test_set_one_target12_spl1) == target_name] <- "target"
+```
+
+**Split 2**
+
+```{r}
+drop <- names(test_set_cont_spl2) %in% c("target_1", 'target_6', 'target_future')
+test_set_cont_target12_spl2 <- subset(test_set_cont_spl2, select = !drop)
+names(test_set_cont_target12_spl2)[names(test_set_cont_target12_spl2) == target_name] <- "target"
+
+drop <- names(test_set_cat_spl2) %in% c("target_1", 'target_6', 'target_future')
+test_set_cat_target12_spl2 <- subset(test_set_cat_spl2, select = !drop)
+names(test_set_cat_target12_spl2)[names(test_set_cat_target12_spl2) == target_name] <- "target"
+
+drop <- names(test_set_one_spl2) %in% c("target_1", 'target_6', 'target_future')
+test_set_one_target12_spl2 <- subset(test_set_one_spl2, select = !drop)
+names(test_set_one_target12_spl2)[names(test_set_one_target12_spl2) == target_name] <- "target"
+```
+
+
+## TARGET FUTURE
+
+Taking target future and erasing the others.
+
+**Split 1**
+
+```{r}
+target_name <- 'target_future'
+
+drop <- names(test_set_cont_spl1) %in% c("target_1", 'target_6', 'target_12')
+test_set_cont_targetfuture_spl1 <- subset(test_set_cont_spl1, select = !drop)
+names(test_set_cont_targetfuture_spl1)[names(test_set_cont_targetfuture_spl1) == target_name] <- "target"
+
+drop <- names(test_set_cat_spl1) %in% c("target_1", 'target_6', 'target_12')
+test_set_cat_targetfuture_spl1 <- subset(test_set_cat_spl1, select = !drop)
+names(test_set_cat_targetfuture_spl1)[names(test_set_cat_targetfuture_spl1) == target_name] <- "target"
+
+drop <- names(test_set_one_spl1) %in% c("target_1", 'target_6', 'target_12')
+test_set_one_targetfuture_spl1 <- subset(test_set_one_spl1, select = !drop)
+names(test_set_one_targetfuture_spl1)[names(test_set_one_targetfuture_spl1) == target_name] <- "target"
+```
+
+**Split 2**
+
+```{r}
+drop <- names(test_set_cont_spl2) %in% c("target_1", 'target_6', 'target_12')
+test_set_cont_targetfuture_spl2 <- subset(test_set_cont_spl2, select = !drop)
+names(test_set_cont_targetfuture_spl2)[names(test_set_cont_targetfuture_spl2) == target_name] <- "target"
+
+drop <- names(test_set_cat_spl2) %in% c("target_1", 'target_6', 'target_12')
+test_set_cat_targetfuture_spl2 <- subset(test_set_cat_spl2, select = !drop)
+names(test_set_cat_targetfuture_spl2)[names(test_set_cat_targetfuture_spl2) == target_name] <- "target"
+
+drop <- names(test_set_one_spl2) %in% c("target_1", 'target_6', 'target_12')
+test_set_one_targetfuture_spl2 <- subset(test_set_one_spl2, select = !drop)
+names(test_set_one_targetfuture_spl2)[names(test_set_one_targetfuture_spl2) == target_name] <- "target"
+```
+
+
+#### MODELS
+
+Reading the trained models for each target and split.
+
+**Target 1**
+
+```{r}
+for (i in 1:nrow(RDA_target_1)) {
+  read_name_spl1 <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', '1model', i, '_RDA_','target',1,'.rds')
+  read_name_spl2 <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', '2model', i, '_RDA_','target',1,'.rds')
+  
+  if (i==1) {
+    model1_RDA_target1_spl1 <- try(readRDS(read_name_spl1))
+    model1_RDA_target1_spl2 <- try(readRDS(read_name_spl2))
+  } else if (i==2) {
+    model2_RDA_target1_spl1 <- try(readRDS(read_name_spl1))
+    model2_RDA_target1_spl2 <- try(readRDS(read_name_spl2))
+  } else if(i==3) {
+    model3_RDA_target1_spl1 <- try(readRDS(read_name_spl1))
+    model3_RDA_target1_spl2 <- try(readRDS(read_name_spl2))
+  } else {
+    model4_RDA_target1_spl1 <- try(readRDS(read_name_spl1))
+    model4_RDA_target1_spl2 <- try(readRDS(read_name_spl2))
+  }
+}
+
+for (i in 1:nrow(RF_target_1)) {
+  read_name_spl1 <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', '1model', i, '_RF_','target',1,'.rds')
+  read_name_spl2 <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', '2model', i, '_RF_','target',1,'.rds')
+  if (i==1) {
+    model1_RF_target1_spl1 <- try(readRDS(read_name_spl1))
+    model1_RF_target1_spl2 <- try(readRDS(read_name_spl2))
+  } else if (i==2) {
+    model2_RF_target1_spl1 <- try(readRDS(read_name_spl1))
+    model2_RF_target1_spl2 <- try(readRDS(read_name_spl2))
+  }
+}
+
+for (i in 1:nrow(SVM_target_1)) {
+  read_name_spl1 <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', '1model', i, '_SVM_','target',1,'.rds')
+  read_name_spl2 <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', '2model', i, '_SVM_','target',1,'.rds')
+  if (i==1) {
+    model1_SVM_target1_spl1 <- try(readRDS(read_name_spl1))
+    model1_SVM_target1_spl2 <- try(readRDS(read_name_spl2))
+  } else if (i==2) {
+    model2_SVM_target1_spl1 <- try(readRDS(read_name_spl1))
+    model2_SVM_target1_spl2 <- try(readRDS(read_name_spl2))
+  } else if (i==3) {
+    model3_SVM_target1_spl1 <- try(readRDS(read_name_spl1))
+    model3_SVM_target1_spl2 <- try(readRDS(read_name_spl2))
+  } else if (i==4) {
+    model4_SVM_target1_spl1 <- try(readRDS(read_name_spl1))
+    model4_SVM_target1_spl2 <- try(readRDS(read_name_spl2))
+  } else if (i==5) {
+    model5_SVM_target1_spl1 <- try(readRDS(read_name_spl1))
+    model5_SVM_target1_spl2 <- try(readRDS(read_name_spl2))
+  } else if (i==6) {
+    model6_SVM_target1_spl1 <- try(readRDS(read_name_spl1))
+    model6_SVM_target1_spl2 <- try(readRDS(read_name_spl2))
+  } else {
+    model7_SVM_target1_spl1 <- try(readRDS(read_name_spl1))
+    model7_SVM_target1_spl2 <- try(readRDS(read_name_spl2))
+  }
+}
+```
+
+**Target 6**
+
+```{r}
+for (i in 1:nrow(RDA_target_6)){
+  read_name_spl1 <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', '1model', i, '_RDA_','target',6,'.rds')
+  read_name_spl2 <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', '2model', i, '_RDA_','target',6,'.rds')
+  
+  if (i==1) {
+    model1_RDA_target6_spl1 <- try(readRDS(read_name_spl1))
+    model1_RDA_target6_spl2 <- try(readRDS(read_name_spl2))
+  } else if (i==2) {
+    model2_RDA_target6_spl1 <- try(readRDS(read_name_spl1))
+    model2_RDA_target6_spl2 <- try(readRDS(read_name_spl2))
+  } else if(i==3) {
+    model3_RDA_target6_spl1 <- try(readRDS(read_name_spl1))
+    model3_RDA_target6_spl2 <- try(readRDS(read_name_spl2))
+  } else {
+    model4_RDA_target6_spl1 <- try(readRDS(read_name_spl1))
+    model4_RDA_target6_spl2 <- try(readRDS(read_name_spl2))
+  }
+}
+
+for (i in 1:nrow(RF_target_6)) {
+  read_name_spl1 <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', '1model', i, '_RF_','target',6,'.rds')
+  read_name_spl2 <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', '2model', i, '_RF_','target',6,'.rds')
+  if (i==1) {
+    model1_RF_target6_spl1 <- try(readRDS(read_name_spl1))
+    model1_RF_target6_spl2 <- try(readRDS(read_name_spl2))
+  }
+  if (i==2) {
+    model2_RF_target6_spl1 <- try(readRDS(read_name_spl1))
+    model2_RF_target6_spl2 <- try(readRDS(read_name_spl2))
+  }
+}
+
+for (i in 1:nrow(SVM_target_6)) {
+  read_name_spl1 <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', '1model', i, '_SVM_','target',6,'.rds')
+  read_name_spl2 <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', '2model', i, '_SVM_','target',6,'.rds')
+  if (i==1) {
+    model1_SVM_target6_spl1 <- try(readRDS(read_name_spl1))
+    model1_SVM_target6_spl2 <- try(readRDS(read_name_spl2))
+  } else if (i==2) {
+    model2_SVM_target6_spl1 <- try(readRDS(read_name_spl1))
+    model2_SVM_target6_spl2 <- try(readRDS(read_name_spl2))
+  } else if(i==3) {
+    model3_SVM_target6_spl1 <- try(readRDS(read_name_spl1))
+    model3_SVM_target6_spl2 <- try(readRDS(read_name_spl2))
+  } else if (i==4) {
+    model4_SVM_target6_spl1 <- try(readRDS(read_name_spl1))
+    model4_SVM_target6_spl2 <- try(readRDS(read_name_spl2))
+  } else if (i==5) {
+    model5_SVM_target6_spl1 <- try(readRDS(read_name_spl1))
+    model5_SVM_target6_spl2 <- try(readRDS(read_name_spl2))
+  } else if (i==6) {
+    model6_SVM_target6_spl1 <- try(readRDS(read_name_spl1))
+    model6_SVM_target6_spl2 <- try(readRDS(read_name_spl2))
+  } else {
+    model7_SVM_target6_spl1 <- try(readRDS(read_name_spl1))
+    model7_SVM_target6_spl2 <- try(readRDS(read_name_spl2))
+  }
+}
+```
+
+**Target 12**
+
+```{r}
+for (i in 1:nrow(RDA_target_12)){
+  read_name_spl1 <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', '1model', i, '_RDA_','target',12,'.rds')
+  read_name_spl2 <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', '2model', i, '_RDA_','target',12,'.rds')
+  
+  if (i==1) {
+    model1_RDA_target12_spl1 <- try(readRDS(read_name_spl1))
+    model1_RDA_target12_spl2 <- try(readRDS(read_name_spl2))
+  } else if (i==2) {
+    model2_RDA_target12_spl1 <- try(readRDS(read_name_spl1))
+    model2_RDA_target12_spl2 <- try(readRDS(read_name_spl2))
+  } else if(i==3) {
+    model3_RDA_target12_spl1 <- try(readRDS(read_name_spl1))
+    model3_RDA_target12_spl2 <- try(readRDS(read_name_spl2))
+  } else {
+    model4_RDA_target12_spl1 <- try(readRDS(read_name_spl1))
+    model4_RDA_target12_spl2 <- try(readRDS(read_name_spl2))
+  }
+}
+
+for (i in 1:nrow(RF_target_12)) {
+  read_name_spl1 <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', '1model', i, '_RF_','target',12,'.rds')
+  read_name_spl2 <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', '2model', i, '_RF_','target',12,'.rds')
+  if (i==1) {
+    model1_RF_target12_spl1 <- try(readRDS(read_name_spl1))
+    model1_RF_target12_spl2 <- try(readRDS(read_name_spl2))
+  } else if (i==2) {
+    model2_RF_target12_spl1 <- try(readRDS(read_name_spl1))
+    model2_RF_target12_spl2 <- try(readRDS(read_name_spl2))
+  }
+}
+
+for (i in 1:nrow(SVM_target_12)) {
+  read_name_spl1 <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', '1model', i, '_SVM_','target',12,'.rds')
+  read_name_spl2 <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', '2model', i, '_SVM_','target',12,'.rds')
+  if (i==1) {
+    model1_SVM_target12_spl1 <- try(readRDS(read_name_spl1))
+    model1_SVM_target12_spl2 <- try(readRDS(read_name_spl2))
+  } else if (i==2) {
+    model2_SVM_target12_spl1 <- try(readRDS(read_name_spl1))
+    model2_SVM_target12_spl2 <- try(readRDS(read_name_spl2))
+  } else if(i==3) {
+    model3_SVM_target12_spl1 <- try(readRDS(read_name_spl1))
+    model3_SVM_target12_spl2 <- try(readRDS(read_name_spl2))
+  } else if (i==4) {
+    model4_SVM_target12_spl1 <- try(readRDS(read_name_spl1))
+    model4_SVM_target12_spl2 <- try(readRDS(read_name_spl2))
+  } else if (i==5) {
+    model5_SVM_target12_spl1 <- try(readRDS(read_name_spl1))
+    model5_SVM_target12_spl2 <- try(readRDS(read_name_spl2))
+  } else if (i==6) {
+    model6_SVM_target12_spl1 <- try(readRDS(read_name_spl1))
+    model6_SVM_target12_spl2 <- try(readRDS(read_name_spl2))
+  } else{
+    model7_SVM_target12_spl1 <- try(readRDS(read_name_spl1))
+    model7_SVM_target12_spl2 <- try(readRDS(read_name_spl2))
+  }
+}
+```
+
+**Target future**
+
+```{r}
+for (i in 1:nrow(RDA_target_future)) {
+  read_name_spl1 <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', '1model', i, '_RDA_','target','future','.rds')
+  read_name_spl2 <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', '2model', i, '_RDA_','target','future','.rds')
+  
+  if (i==1) {
+    model1_RDA_targetfuture_spl1 <- try(readRDS(read_name_spl1))
+    model1_RDA_targetfuture_spl2 <- try(readRDS(read_name_spl2))
+  } else if (i==2) {
+    model2_RDA_targetfuture_spl1 <- try(readRDS(read_name_spl1))
+    model2_RDA_targetfuture_spl2 <- try(readRDS(read_name_spl2))
+  } else if (i==3) {
+    model3_RDA_targetfuture_spl1 <- try(readRDS(read_name_spl1))
+    model3_RDA_targetfuture_spl2 <- try(readRDS(read_name_spl2))
+  } else {
+    model4_RDA_targetfuture_spl1 <- try(readRDS(read_name_spl1))
+    model4_RDA_targetfuture_spl2 <- try(readRDS(read_name_spl2))
+  }
+}
+
+for (i in 1:nrow(RF_target_future)) {
+  read_name_spl1 <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', '1model', i, '_RF_','target','future','.rds')
+  read_name_spl2 <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', '2model', i, '_RF_','target','future','.rds')
+  if (i==1) {
+    model1_RF_targetfuture_spl1 <- try(readRDS(read_name_spl1))
+    model1_RF_targetfuture_spl2 <- try(readRDS(read_name_spl2))
+  } else if (i==2) {
+    model2_RF_targetfuture_spl1 <- try(readRDS(read_name_spl1))
+    model2_RF_targetfuture_spl2 <- try(readRDS(read_name_spl2))
+  }
+}
+
+for (i in 1:nrow(SVM_target_future)) {
+  read_name_spl1 <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', '1model', i, '_SVM_','target','future','.rds')
+  read_name_spl2 <- paste0('../Results/3. Final_models/3.1. Training/3.1.2. Models/', '2model', i, '_SVM_','target','future','.rds')
+  if (i==1) {
+    model1_SVM_targetfuture_spl1 <- try(readRDS(read_name_spl1))
+    model1_SVM_targetfuture_spl2 <- try(readRDS(read_name_spl2))
+  } else if (i==2) {
+    model2_SVM_targetfuture_spl1 <- try(readRDS(read_name_spl1))
+    model2_SVM_targetfuture_spl2 <- try(readRDS(read_name_spl2))
+  } else if(i==3) {
+    model3_SVM_targetfuture_spl1 <- try(readRDS(read_name_spl1))
+    model3_SVM_targetfuture_spl2 <- try(readRDS(read_name_spl2))
+  } else if (i==4) {
+    model4_SVM_targetfuture_spl1 <- try(readRDS(read_name_spl1))
+    model4_SVM_targetfuture_spl2 <- try(readRDS(read_name_spl2))
+  } else if (i==5) {
+    model5_SVM_targetfuture_spl1 <- try(readRDS(read_name_spl1))
+    model5_SVM_targetfuture_spl2 <- try(readRDS(read_name_spl2))
+  } else if (i==6) {
+    model6_SVM_targetfuture_spl1 <- try(readRDS(read_name_spl1))
+    model6_SVM_targetfuture_spl2 <- try(readRDS(read_name_spl2))
+  } else {
+    model7_SVM_targetfuture_spl1 <- try(readRDS(read_name_spl1))
+    model7_SVM_targetfuture_spl2 <- try(readRDS(read_name_spl2))
+  }
+}
+```
+
+
+### Calculating the errors
+
+**err_fun()**
+
+Function that given a confusion matrix, extracts and returns three evaluation metrics in a data frame:
+
+(1) Accuracy (that is, the proportion of correctly predicted classes out of all the validation data points). 
+(2) Sensitivity (that is, the proportion of 1's which are correctly classified as 1's). 
+(3) Specificity (that is, the proportion of 0's which are correctly classified as 0's).
+
+```{r}
+err_fun <- function(confusion_matrix) {
+  if (length(confusion_matrix) == 4) {
+    Accuracy <- 100*(confusion_matrix[1]+confusion_matrix[4])/sum(confusion_matrix)
+    Sensitivity <- 100*(confusion_matrix[4])/(confusion_matrix[3]+confusion_matrix[4])
+    Specificity <- 100*(confusion_matrix[1])/(confusion_matrix[1]+confusion_matrix[2])
+  } else if (rownames(confusion_matrix) == 0) {
+    Accuracy <- confusion_matrix[1]/sum(confusion_matrix)*100
+    Sensitivity <- 0
+    Specificity <- 100
+  } else if (rownames(confusion_matrix) == 1) {
+    Accuracy <- confusion_matrix[2]/sum(confusion_matrix)*100
+    Sensitivity <- 100
+    Specificity <- 0
+  }
+  
+  return(cbind(Accuracy, Sensitivity, Specificity))
+}
+```
+
+
+### Final classification ML models
+
+Definition of KSVM_results(), RDA_results(), RF_results() functions that used to predict the test data with the trained KSVM, RDA and RF models.
+
+1. **KSVM_results()**
+
+2. **RDA_results()**
+
+3. **RF_results()**
+
+
+#### KSVM
+
+**KSVM_results()**
+
+Function that given the trained models compute the predictions. Returns a list with the scores, the class probabilities, and the classes for each model.
+
+```{r}
+KSVM_results <- function(SVM_target, test_set_cont_ROSE, test_set_cont, test_set_cat_ROSE, test_set_cat, test_set_one_ROSE, test_set_one, model1, 
+                         model2, model3, model4, model5, model6, model7) {
+
+  set.seed(seed)
+  SVM_probabilities <- c()
+  SVM_scores <- c()
+  SVM_classes <- c()
+  for (i in 1:nrow(SVM_target)) {
+     if (i==1) {
+        model <- model1
+      } else if (i==2) {
+        model <- model2
+      } else if(i==3) {
+        model <- model3
+      } else if (i==4) {
+        model <- model4
+      } else if (i==5) {
+        model <- model5
+      } else if (i==6) {
+        model <- model6
+      } else if (i==7) {
+        model <- model7
+      }
+        
+    if (SVM_target$Data[i] == "factors_2_numbers_del_cont.csv") {
+      if (SVM_target$Balancing[i] == "ROSE") {
+        fit_prob_i <- predict(model, newdata = test_set_cont_ROSE, type="probabilities")[,2]
+      } else {
+        fit_prob_i <- predict(model, newdata = test_set_cont, type="probabilities")[,2]
+      }
+    }
+    
+    else if (SVM_target$Data[i] == "factors_2_numbers_del.csv") {
+      if (SVM_target$Balancing[i] == "ROSE") {
+        fit_prob_i <- predict(model, newdata = test_set_cat_ROSE, type="probabilities")[,2]
+      } else {
+        fit_prob_i <- predict(model, newdata = test_set_cat, type="probabilities")[,2]
+      }
+    }
+  
+    else if (SVM_target$Data[i] == "onehot_del_cont.csv") {
+      if (SVM_target$Balancing[i] == "ROSE") {
+        fit_prob_i <- predict(model, newdata = test_set_one_ROSE, type="probabilities")[,2]
+    } else {
+        fit_prob_i <- predict(model, newdata = test_set_one, type="probabilities")[,2]
+      }
+    }
+  
+    # Calculate score for model i
+    SVM_classes_i <- sapply(fit_prob_i, function(x) {if (x >= 0.5) return (1) else return(0)})
+    SVM_performance_i <- err_fun(table(predicted = SVM_classes_i, actual = test_set_cont$target))
+    fit_score_i <- unname((0.6*SVM_performance_i[,2]+0.4*SVM_performance_i[,3])/100)
+
+    # Save score and probabilities for model i
+    SVM_scores <- cbind(SVM_scores, fit_score_i)
+    SVM_probabilities <- cbind(SVM_probabilities, fit_prob_i)
+    SVM_classes <- cbind(SVM_classes, SVM_classes_i)
+  }
+
+  return(list("Scores" = SVM_scores, "Probabilities" = SVM_probabilities, "Classes"= SVM_classes))
+}
+```
+
+#### RDA
+
+**RDA_results()**
+
+Function that given the trained models compute the predictions. Returns a list with the scores, the class probabilities, and the classes for each model.
+
+```{r}
+RDA_results <- function(RDA_target, test_set_cont_ROSE,test_set_cont,test_set_cat_ROSE,test_set_cat,test_set_one_ROSE,test_set_one,model1,                               model2,model3,model4) {
+  set.seed(seed)
+  RDA_probabilities <- c()
+  RDA_scores <- c()
+  RDA_classes <- c()
+  index_cont <- which(colnames(test_set_cont)=="target")
+  index_cat<- which(colnames(test_set_cat)=="target")
+  index_one <- which(colnames(test_set_one)=="target")
+
+  for (i in 1:nrow(RDA_target)) {
+     if (i==1) {
+        model <- model1
+     } else if (i==2) {
+        model <- model2
+     } else if(i==3) {
+        model <- model3
+     } else if (i==4) {
+        model <- model4
+     }
+    
+    if (RDA_target$Data[i] == "factors_2_numbers_del_cont.csv") {
+      if (RDA_target$Balancing[i] == "ROSE") {
+          fit_prob_i <- predict(model, newdata = test_set_cont_ROSE[,-c(index_cont)], type = "probs")$posterior[,2]
+      } else {
+          fit_prob_i <- predict(model, newdata = test_set_cont[,-c(index_cont)], type = "probs")$posterior[,2]
+      } 
+    } 
+  
+    else if (RDA_target$Data[i] == "factors_2_numbers_del.csv") {
+        if (RDA_target$Balancing[i] == "ROSE") {
+          fit_prob_i <- predict(model, newdata = test_set_cat_ROSE[,-c(index_cat)], type = "probs")$posterior[,2]
+        } else {
+          fit_prob_i <- predict(model, newdata = test_set_cat[,-c(index_cat)], type = "probs")$posterior[,2]
+        } 
+    } else if (RDA_target$Data[i] == "onehot_del_cont.csv") {
+      if (RDA_target$Balancing[i] == "ROSE") {
+        fit_prob_i <- predict(model, newdata = test_set_one_ROSE[,-c(index_one)], type = "probs")$posterior[,2]
+      } else {
+        fit_prob_i <- predict(model, newdata = test_set_one[,-c(index_one)], type = "probs")$posterior[,2]
+      } 
+    }
+    
+    # Treat some NA's
+    fit_prob_i <- sapply(fit_prob_i, function(x) {if (is.na(x)) return (1) else return(x)})
+  
+    # Calculate score for model i
+    RDA_classes_i <- sapply(fit_prob_i, function(x) {if (x >= 0.5) return (1) else return(0)})
+    RDA_performance_i <- err_fun(table(predicted = RDA_classes_i, actual = test_set_cont$target))
+    fit_score_i <- unname((0.6*RDA_performance_i[,2]+0.4*RDA_performance_i[,3])/100)
+  
+    # Save score and probabilities for model i
+    RDA_scores <- cbind(RDA_scores, fit_score_i)
+    RDA_probabilities <- cbind(RDA_probabilities, fit_prob_i)
+    RDA_classes <- cbind(RDA_classes, RDA_classes_i)
+  }
+
+  return(list("Scores" = RDA_scores, "Probabilities" = RDA_probabilities, "Classes" = RDA_classes))
+}
+```
+
+#### RF
+
+**RF_results()**
+
+Function that given the trained models compute the predictions. Returns a list with the scores, the class probabilities, and the classes for each model.
+
+```{r}
+RF_results <- function(RF_target, test_set_cat_rf, model1, model2) {
+  set.seed(seed)
+  RF_probabilities <- c()
+  RF_scores <- c()
+  RF_classes <- c()
+
+  for (i in 1:nrow(RF_target)) {
+    if (i==1) {
+      model <- model1
+    } else if (i==2) {
+      model <- model2
+    }    
+      
+    if (RF_target$Mètode[i] == "Cutoff") {
+      fit_prob_i <- predict(model, newdata = test_set_cat_rf, type="response")
+    } else if (RF_target$Mètode[i] == "Over") {
+      fit_prob_i <- predict(model, newdata = test_set_cat_rf, type="response")
+    }
+  
+    # Calculate score for model i
+    fit_prob_i <- sapply(fit_prob_i, function(x) {if (x == 1) return (1) else return(0)})
+    RF_performance_i <- err_fun(table(predicted = fit_prob_i, actual = test_set_cat_rf$target))
+    fit_score_i <- unname((0.6*RF_performance_i[,2]+0.4*RF_performance_i[,3])/100)
+
+    # Save score and probabilies for model i
+    RF_scores <- cbind(RF_scores, fit_score_i)
+    RF_probabilities <- cbind(RF_probabilities, fit_prob_i)
+    RF_classes <- cbind(RF_classes, fit_prob_i)
+  }
+  
+  return(list("Scores" = RF_scores, "Probabilities" = RF_probabilities, "Classes" = RF_classes))
+}
+```
+
+
+### Ensembling methods 
+
+Implementing two ensembling methods:
+
+1. **Rank averaging**
+
+2. **Majority "by number"**
+
+### Rank averaging
+
+**rank_averaging()**
+
+Function that given the scores and probabilities of RDA, KSVM, and RF models, returns probabilities after performing rank averaging. Rank averaging consists of weighing the probabilities. First, joins and sorts the scores of the models (in a way that the indexes are not lost). Then, divides the position of each score in the ranking by the total sum of positions. Finally, multiplies these weights by the probabilities.
+
+```{r}
+rank_averaging <- function(rda_res, svm_res, rf_res, number_SVM, number_RDA, number_RF) {
+  RDA_scores <- rda_res$Scores
+  RDA_probabilities <- rda_res$Probabilities
+ 
+  KSVM_scores <- svm_res$Scores
+  KSVM_probabilities <- svm_res$Probabilities
+ 
+  RF_scores <- rf_res$Scores
+  RF_probabilities <- rf_res$Probabilities
+ 
+  if (number_SVM == 1 & number_RDA == 0 & number_RF == 0) {
+    total_probabilities <- cbind(KSVM_probabilities)
+    total_scores <- c(KSVM_scores)
+  } else if (number_SVM == 0 & number_RDA == 1 & number_RF == 0) {
+    total_probabilities <- cbind(RDA_probabilities)
+    total_scores <- c(RDA_scores)
+  } else if (number_SVM == 0 & number_RDA == 0 & number_RF == 1) {
+    total_probabilities <- cbind(RF_probabilities)
+    total_scores <- c(RF_scores)
+  } else if (number_SVM == 1 & number_RDA == 1 & number_RF == 0) {
+    total_probabilities <- cbind(RDA_probabilities, KSVM_probabilities)
+    total_scores <- c(RDA_scores, KSVM_scores)
+  } else if (number_SVM == 0 & number_RDA == 1 & number_RF == 1) {
+    total_probabilities <- cbind(RDA_probabilities, RF_probabilities)
+    total_scores <- c(RDA_scores, RF_scores)
+  } else if (number_SVM == 1 & number_RDA == 0 & number_RF == 1) {
+    total_probabilities <- cbind(KSVM_probabilities, RF_probabilities)
+    total_scores <- c(KSVM_scores, RF_scores)
+  } else {
+    total_probabilities <- cbind(RDA_probabilities, KSVM_probabilities, RF_probabilities)
+    total_scores <- c(RDA_scores, KSVM_scores, RF_scores)
+  }
+ 
+  order_scores <- order(total_scores, decreasing = TRUE)
+ 
+  # Extracting rank positions
+  result <- c()
+  j <- 1
+  for (i in order_scores) {
+    result[i] <- j
+    j <- j+1
+  }
+ 
+  # Normalizing  weights according to ranking positions
+  result <- result/sum(result)
+ 
+  # Rank averaging the probabilities
+  for (col in 1:ncol(total_probabilities)) {
+    total_probabilities[,col] <- result[col]*total_probabilities[,col]
+  }
+  final_probabilities <- rowSums(total_probabilities)
+ 
+  return(final_probabilities)
+}
+```
+
+**different_thresholds()**
+
+Function that given a vector of probabilities returns a data frame with performance results using different thresholds, giving more weight to one of the two classes.
+
+```{r}
+different_thresholds <- function(final_probabilities, test_set_cont) {
+  performance_rank <- data.frame()
+  thresholds <- seq(0, 1, 0.05)
+
+  for (threshold in thresholds) {
+    final_classes <- sapply(final_probabilities, function(x) {if (x >= threshold) return (1) else return(0)})
+    confusion_matrix <- table(predicted = final_classes, actual = test_set_cont$target)
+    performance_rank <- rbind(performance_rank, err_fun(confusion_matrix))
+  }
+
+  performance_rank$Threshold <- thresholds
+  performance_rank$Ensembling <- "Rank averaging"
+  
+  return(performance_rank)
+}
+```
+
+### Majority by number
+
+Function that given the scores and probabilities of RDA, KSVM, and RF models, returns probabilities after performing majority "by number". First, sums the total number of ones in the three models. Then, uses different thresholds to take the majority (if the number of ones is bigger than or equal the threshold -> class = 1, if not -> class = 0.
+
+```{r}
+majority_number <- function(rda_res, svm_res, rf_res, number_SVM, number_rda_res, number_rf_res, test_set_cont) {
+  len <- length(test_set_cont$target)
+  
+  if (number_rda_res == 0) {
+    rda_res_conf <- rep(0, len)
+  } else if (number_rda_res == 1) {
+    rda_res_conf <- rda_res$Classes
+  } else {
+    rda_res_conf <- rowSums(rda_res$Classes)
+  }
+  
+  if (number_SVM == 0) {
+    svm_res_conf <- rep(0, len)
+  } else if (number_SVM == 1) {
+    svm_res_conf <- svm_res$Classes
+  } else {
+    svm_res_conf <- rowSums(svm_res$Classes)
+  }
+  
+  if (number_rf_res == 0) {
+    rf_res_conf <- rep(0, len)
+  } else if (number_rf_res == 1) {
+    rf_res_conf <- rf_res$Classes
+  } else {
+    rf_res_conf <- rowSums(rf_res$Classes)
+  }
+  
+  total_sum_conf <- rda_res_conf + svm_res_conf + rf_res_conf
+  
+  numbers <- seq(1, number_rda_res + number_SVM + number_rf_res)
+  perf_resormance_majority <- c()
+
+  for (number in numbers) {
+    final_classes <- sapply(total_sum_conf, function(x) {if (x >= number) return (1) else return(0)})
+    confusion_matrix <- table(predicted = final_classes, actual = test_set_cont$target)
+    perf_resormance_majority <- rbind(perf_resormance_majority, err_fun(confusion_matrix))
+  }
+  
+  perf_resormance_majority <- as.data.frame(perf_resormance_majority)
+  perf_resormance_majority$Threshold <- numbers
+  perf_resormance_majority$Ensembling <- "Majority by number"
+
+  return(perf_resormance_majority)
+}
+```
+
+## Predictions
+
+
+### TARGET 1
+
+Calculating the predictions of target1 two times, one for split
+
+**Split 1**
+
+```{r}
+ksvm_results <- KSVM_results(SVM_target_1, test_set_cont_ROSE_target1_spl1, test_set_cont_target1_spl1,test_set_cat_ROSE_target1_spl1, test_set_cat_target1_spl1,
+                        test_set_one_ROSE_target1_spl1, test_set_one_target1_spl1, model1_SVM_target1_spl1, model2_SVM_target1_spl1, model3_SVM_target1_spl1,
+                        model4_SVM_target1_spl1, model5_SVM_target1_spl1, model6_SVM_target1_spl1, model7_SVM_target1_spl1)
+
+rda_results <- RDA_results(RDA_target_1, test_set_cont_ROSE_target1_spl1, test_set_cont_target1_spl1,test_set_cat_ROSE_target1_spl1,test_set_cat_target1_spl1,
+             test_set_one_ROSE_target1_spl1,test_set_one_target1_spl1, model1_RDA_target1_spl1,model2_RDA_target1_spl1,model3_RDA_target1_spl1, model4_RDA_target1_spl1)
+
+rf_results <- RF_results(RF_target_1,test_set_cat_rf_target1_spl1,model1_RF_target1_spl1,model2_RF_target1_spl1)
+```
+
+Saving the predictions
+
+```{r}
+dir.create(file.path("../Results", "3. Final_models", "3.2. Testing", "3.2.1. Predictions"), recursive = TRUE, showWarnings = FALSE)
+
+saveRDS(ksvm_results, '../Results/3. Final_models/3.2. Testing/3.2.1. Predictions/svm_target_1_spl1.csv')
+saveRDS(rda_results, '../Results/3. Final_models/3.2. Testing/3.2.1. Predictions/rda_target_1_spl1.csv')
+saveRDS(rf_results, '../Results/3. Final_models/3.2. Testing/3.2.1. Predictions/rf_target_1_spl1.csv')
+```
+
+Studying all combinations of number of KSVM, RDA and RF taken. Storing performance results for each, after implementing rank averaging and majority "by number".
+
+```{r}
+rda_i <- c()
+ksvm_i <- c()
+rf_i <- c()
+performance_rank_target1_spl1 <- data.frame()
+performance_majority_target1_spl1 <- data.frame()
+
+for (number_RDA in seq(0, nrow(RDA_target_1))) {
+  for (number_SVM in seq(0, nrow(SVM_target_1))) {
+    for (number_RF in seq(0, nrow(RF_target_1))) {
+      if (number_RDA == 0 & number_SVM == 0 & number_RF == 0) {
+        
+      } else {
+        rda_i$Scores <- cbind(rda_results$Scores[1:number_RDA])
+        rda_i$Probabilities <- cbind(rda_results$Probabilities[,1:number_RDA])
+        rda_i$Classes <- cbind(rda_results$Classes[,1:number_RDA])
+        
+        ksvm_i$Scores <- cbind(ksvm_results$Scores[1:number_SVM])
+        ksvm_i$Probabilities <- cbind(ksvm_results$Probabilities[,1:number_SVM])
+        ksvm_i$Classes <- cbind(ksvm_results$Classes[,1:number_SVM])
+        
+        rf_i$Scores <- cbind(rf_results$Scores[1:number_RF])
+        rf_i$Probabilities <- cbind(rf_results$Probabilities[,1:number_RF])
+        rf_i$Classes <- cbind(rf_results$Classes[,1:number_RF])
+        
+        rank_averaging_i <- rank_averaging(rda_i, ksvm_i, rf_i, number_SVM, number_RDA, number_RF)
+        performance_rank_i <- cbind(different_thresholds(rank_averaging_i, test_set_cont_target1_spl1), number_SVM, number_RDA, number_RF)
+        performance_majority_i <- cbind(majority_number(rda_i, ksvm_i, rf_i, number_SVM, number_RDA, number_RF, test_set_cont_target1_spl1), number_SVM, number_RDA, number_RF)
+        
+        performance_rank_target1_spl1 <- rbind(performance_rank_target1_spl1, performance_rank_i)
+        performance_majority_target1_spl1 <- rbind(performance_majority_target1_spl1, performance_majority_i)
+      }
+    }
+  }
+}
+```
+
+
+**Split 2**
+
+```{r}
+ksvm_results <- KSVM_results(SVM_target_1, test_set_cont_ROSE_target1_spl2, test_set_cont_target1_spl2,test_set_cat_ROSE_target1_spl2, test_set_cat_target1_spl2,
+                        test_set_one_ROSE_target1_spl2, test_set_one_target1_spl2, model1_SVM_target1_spl2, model2_SVM_target1_spl2, model3_SVM_target1_spl2,
+                        model4_SVM_target1_spl2, model5_SVM_target1_spl2, model6_SVM_target1_spl2, model7_SVM_target1_spl2)
+
+rda_results <- RDA_results(RDA_target_1, test_set_cont_ROSE_target1_spl2, test_set_cont_target1_spl2,test_set_cat_ROSE_target1_spl2,test_set_cat_target1_spl2,
+             test_set_one_ROSE_target1_spl2,test_set_one_target1_spl2, model1_RDA_target1_spl2,model2_RDA_target1_spl2,model3_RDA_target1_spl2, model4_RDA_target1_spl2)
+
+rf_results <- RF_results(RF_target_1,test_set_cat_rf_target1_spl2,model1_RF_target1_spl2,model2_RF_target1_spl2)
+```
+
+Saving the predictions
+
+```{r}
+dir.create(file.path("../Results", "3. Final_models", "3.2. Testing", "3.2.1. Predictions"), recursive = TRUE, showWarnings = FALSE)
+
+saveRDS(ksvm_results, '../Results/3. Final_models/3.2. Testing/3.2.1. Predictions/svm_target_1_spl2.csv')
+saveRDS(rda_results, '../Results/3. Final_models/3.2. Testing/3.2.1. Predictions/rda_target_1_spl2.csv')
+saveRDS(rf_results, '../Results/3. Final_models/3.2. Testing/3.2.1. Predictions/rf_target_1_spl2.csv')
+```
+
+Studying all combinations of number of KSVM, RDA and RF taken. Storing performance results for each, after implementing rank averaging and majority "by number".
+
+```{r}
+rda_i <- c()
+ksvm_i <- c()
+rf_i <- c()
+performance_rank_target1_spl2 <- data.frame()
+performance_majority_target1_spl2 <- data.frame()
+
+for (number_RDA in seq(0, nrow(RDA_target_1))) {
+  for (number_SVM in seq(0, nrow(SVM_target_1))) {
+    for (number_RF in seq(0, nrow(RF_target_1))) {
+      if (number_RDA == 0 & number_SVM == 0 & number_RF == 0) {
+        
+      } else {
+        rda_i$Scores <- cbind(rda_results$Scores[1:number_RDA])
+        rda_i$Probabilities <- cbind(rda_results$Probabilities[,1:number_RDA])
+        rda_i$Classes <- cbind(rda_results$Classes[,1:number_RDA])
+        
+        ksvm_i$Scores <- cbind(ksvm_results$Scores[1:number_SVM])
+        ksvm_i$Probabilities <- cbind(ksvm_results$Probabilities[,1:number_SVM])
+        ksvm_i$Classes <- cbind(ksvm_results$Classes[,1:number_SVM])
+        
+        rf_i$Scores <- cbind(rf_results$Scores[1:number_RF])
+        rf_i$Probabilities <- cbind(rf_results$Probabilities[,1:number_RF])
+        rf_i$Classes <- cbind(rf_results$Classes[,1:number_RF])
+        
+        rank_averaging_i <- rank_averaging(rda_i, ksvm_i, rf_i, number_SVM, number_RDA, number_RF)
+        performance_rank_i <- cbind(different_thresholds(rank_averaging_i, test_set_cont_target1_spl2), number_SVM, number_RDA, number_RF)
+        performance_majority_i <- cbind(majority_number(rda_i, ksvm_i, rf_i, number_SVM, number_RDA, number_RF, test_set_cont_target1_spl2), number_SVM, number_RDA, number_RF)
+        
+        performance_rank_target1_spl2 <- rbind(performance_rank_target1_spl2, performance_rank_i)
+        performance_majority_target1_spl2 <- rbind(performance_majority_target1_spl2, performance_majority_i)
+      }
+    }
+  }
+}
+```
+
+
+### TARGET 6
+
+Calculating the predictions of target6 two times, one for split.
+
+**Split 1**
+
+```{r}
+ksvm_results <- KSVM_results(SVM_target_6, test_set_cont_ROSE_target6_spl1, test_set_cont_target6_spl1,test_set_cat_ROSE_target6_spl1, test_set_cat_target6_spl1,
+                        test_set_one_ROSE_target6_spl1, test_set_one_target6_spl1, model1_SVM_target6_spl1, model2_SVM_target6_spl1, model3_SVM_target6_spl1,
+                        model4_SVM_target6_spl1, model5_SVM_target6_spl1, model6_SVM_target6_spl1, model7_SVM_target6_spl1)
+
+rda_results <- RDA_results(RDA_target_6, test_set_cont_ROSE_target6_spl1, test_set_cont_target6_spl1,test_set_cat_ROSE_target6_spl1,test_set_cat_target6_spl1,
+             test_set_one_ROSE_target6_spl1,test_set_one_target6_spl1, model1_RDA_target6_spl1,model2_RDA_target6_spl1,model3_RDA_target6_spl1, model4_RDA_target6_spl1)
+
+rf_results <- RF_results(RF_target_6,test_set_cat_rf_target6_spl1,model1_RF_target6_spl1,model2_RF_target6_spl1)
+```
+
+Saving the predictions.
+
+```{r}
+dir.create(file.path("../Results", "3. Final_models", "3.2. Testing", "3.2.1. Predictions"), recursive = TRUE, showWarnings = FALSE)
+
+saveRDS(ksvm_results, '../Results/3. Final_models/3.2. Testing/3.2.1. Predictions/svm_target_6_spl1.csv')
+saveRDS(rda_results, '../Results/3. Final_models/3.2. Testing/3.2.1. Predictions/rda_target_6_spl1.csv')
+saveRDS(rf_results, '../Results/3. Final_models/3.2. Testing/3.2.1. Predictions/rf_target_6_spl1.csv')
+```
+
+Studying all combinations of number of KSVM, RDA and RF taken. Storing performance results for each, after implementing rank averaging and majority "by number".
+
+```{r}
+rda_i <- c()
+ksvm_i <- c()
+rf_i <- c()
+performance_rank_target6_spl1 <- data.frame()
+performance_majority_target6_spl1 <- data.frame()
+
+for (number_RDA in seq(0, nrow(RDA_target_6))) {
+  for (number_SVM in seq(0, 6)) {  # nrow(SVM_target_6))
+    for (number_RF in seq(0, nrow(RF_target_6))) {
+      if (number_RDA == 0 & number_SVM == 0 & number_RF == 0) {
+        
+      } else {
+        rda_i$Scores <- cbind(rda_results$Scores[1:number_RDA])
+        rda_i$Probabilities <- cbind(rda_results$Probabilities[,1:number_RDA])
+        rda_i$Classes <- cbind(rda_results$Classes[,1:number_RDA])
+        
+        ksvm_i$Scores <- cbind(ksvm_results$Scores[1:number_SVM])
+        ksvm_i$Probabilities <- cbind(ksvm_results$Probabilities[,1:number_SVM])
+        ksvm_i$Classes <- cbind(ksvm_results$Classes[,1:number_SVM])
+        
+        rf_i$Scores <- cbind(rf_results$Scores[1:number_RF])
+        rf_i$Probabilities <- cbind(rf_results$Probabilities[,1:number_RF])
+        rf_i$Classes <- cbind(rf_results$Classes[,1:number_RF])
+        
+        rank_averaging_i <- rank_averaging(rda_i, ksvm_i, rf_i, number_SVM, number_RDA, number_RF)
+        performance_rank_i <- cbind(different_thresholds(rank_averaging_i, test_set_cont_target6_spl1), number_SVM, number_RDA, number_RF)
+        performance_majority_i <- cbind(majority_number(rda_i, ksvm_i, rf_i, number_SVM, number_RDA, number_RF, test_set_cont_target6_spl1), number_SVM, number_RDA, number_RF)
+        
+        performance_rank_target6_spl1 <- rbind(performance_rank_target6_spl1, performance_rank_i)
+        performance_majority_target6_spl1 <- rbind(performance_majority_target6_spl1, performance_majority_i)
+      }
+    }
+  }
+}
+```
+
+
+**Split 2**
+
+Calculating the predictions for split 2.
+
+```{r}
+ksvm_results <- KSVM_results(SVM_target_6, test_set_cont_ROSE_target6_spl2, test_set_cont_target6_spl2,test_set_cat_ROSE_target6_spl2, test_set_cat_target6_spl2,
+                        test_set_one_ROSE_target6_spl2, test_set_one_target6_spl2, model1_SVM_target6_spl2, model2_SVM_target6_spl2, model3_SVM_target6_spl2,
+                        model4_SVM_target6_spl2, model5_SVM_target6_spl2, model6_SVM_target6_spl2, model7_SVM_target6_spl2)
+
+rda_results <- RDA_results(RDA_target_6, test_set_cont_ROSE_target6_spl2, test_set_cont_target6_spl2,test_set_cat_ROSE_target6_spl2,test_set_cat_target6_spl2,
+             test_set_one_ROSE_target6_spl2,test_set_one_target6_spl2, model1_RDA_target6_spl2,model2_RDA_target6_spl2,model3_RDA_target6_spl2, model4_RDA_target6_spl2)
+
+rf_results <- RF_results(RF_target_6,test_set_cat_rf_target6_spl2,model1_RF_target6_spl2,model2_RF_target6_spl2)
+```
+
+Saving the predictions.
+
+```{r}
+dir.create(file.path("../Results", "3. Final_models", "3.2. Testing", "3.2.1. Predictions"), recursive = TRUE, showWarnings = FALSE)
+
+saveRDS(ksvm_results, '../Results/3. Final_models/3.2. Testing/3.2.1. Predictions/svm_target_6_spl2.csv')
+saveRDS(rda_results, '../Results/3. Final_models/3.2. Testing/3.2.1. Predictions/rda_target_6_spl2.csv')
+saveRDS(rf_results, '../Results/3. Final_models/3.2. Testing/3.2.1. Predictions/rf_target_6_spl2.csv')
+```
+
+Studying all combinations of number of KSVM, RDA and RF taken. Storing performance results for each, after implementing rank averaging and majority "by number".
+
+```{r}
+rda_i <- c()
+ksvm_i <- c()
+rf_i <- c()
+performance_rank_target6_spl2 <- data.frame()
+performance_majority_target6_spl2 <- data.frame()
+
+for (number_RDA in seq(0, nrow(RDA_target_12))) {
+  for (number_SVM in seq(0, 6)) { # nrow(SVM_target_12))
+    for (number_RF in seq(0, nrow(RF_target_12))) {
+      if (number_RDA == 0 & number_SVM == 0 & number_RF == 0) {
+        
+      } else {
+        rda_i$Scores <- cbind(rda_results$Scores[1:number_RDA])
+        rda_i$Probabilities <- cbind(rda_results$Probabilities[,1:number_RDA])
+        rda_i$Classes <- cbind(rda_results$Classes[,1:number_RDA])
+        
+        ksvm_i$Scores <- cbind(ksvm_results$Scores[1:number_SVM])
+        ksvm_i$Probabilities <- cbind(ksvm_results$Probabilities[,1:number_SVM])
+        ksvm_i$Classes <- cbind(ksvm_results$Classes[,1:number_SVM])
+        
+        rf_i$Scores <- cbind(rf_results$Scores[1:number_RF])
+        rf_i$Probabilities <- cbind(rf_results$Probabilities[,1:number_RF])
+        rf_i$Classes <- cbind(rf_results$Classes[,1:number_RF])
+        
+        rank_averaging_i <- rank_averaging(rda_i, ksvm_i, rf_i, number_SVM, number_RDA, number_RF)
+        performance_rank_i <- cbind(different_thresholds(rank_averaging_i, test_set_cont_target6_spl2), number_SVM, number_RDA, number_RF)
+        performance_majority_i <- cbind(majority_number(rda_i, ksvm_i, rf_i, number_SVM, number_RDA, number_RF, test_set_cont_target6_spl2), number_SVM, number_RDA, number_RF)
+        
+        performance_rank_target6_spl2 <- rbind(performance_rank_target6_spl2, performance_rank_i)
+        performance_majority_target6_spl2 <- rbind(performance_majority_target6_spl2, performance_majority_i)
+      }
+    }
+  }
+}
+```
+
+
+### TARGET 12
+
+Calculating the predictions of target12 two times, one for split.
+
+**Split 1**
+
+```{r}
+ksvm_results <- KSVM_results(SVM_target_12, test_set_cont_ROSE_target12_spl1, test_set_cont_target12_spl1,test_set_cat_ROSE_target12_spl1, test_set_cat_target12_spl1,
+                        test_set_one_ROSE_target12_spl1, test_set_one_target12_spl1, model1_SVM_target12_spl1, model2_SVM_target12_spl1, model3_SVM_target12_spl1,
+                        model4_SVM_target12_spl1, model5_SVM_target12_spl1, model6_SVM_target12_spl1, model7_SVM_target12_spl1)
+
+rda_results <- RDA_results(RDA_target_12, test_set_cont_ROSE_target12_spl1, test_set_cont_target12_spl1,test_set_cat_ROSE_target12_spl1,test_set_cat_target12_spl1,
+             test_set_one_ROSE_target12_spl1,test_set_one_target12_spl1, model1_RDA_target12_spl1,model2_RDA_target12_spl1,model3_RDA_target12_spl1, model4_RDA_target12_spl1)
+
+rf_results <- RF_results(RF_target_12,test_set_cat_rf_target12_spl1,model1_RF_target12_spl1,model2_RF_target12_spl1)
+```
+
+Saving the predictions.
+
+```{r}
+dir.create(file.path("../Results", "3. Final_models", "3.2. Testing", "3.2.1. Predictions"), recursive = TRUE, showWarnings = FALSE)
+
+saveRDS(ksvm_results, '../Results/3. Final_models/3.2. Testing/3.2.1. Predictions/svm_target_12_spl1.csv')
+saveRDS(rda_results, '../Results/3. Final_models/3.2. Testing/3.2.1. Predictions/rda_target_12_spl1.csv')
+saveRDS(rf_results, '../Results/3. Final_models/3.2. Testing/3.2.1. Predictions/rf_target_12_spl1.csv')
+```
+
+Studying all combinations of number of KSVM, RDA and RF taken. Storing performance results for each, after implementing rank averaging and majority "by number".
+
+```{r}
+rda_i <- c()
+ksvm_i <- c()
+rf_i <- c()
+performance_rank_target12_spl1 <- data.frame()
+performance_majority_target12_spl1 <- data.frame()
+
+for (number_RDA in seq(0, nrow(RDA_target_12))) {
+  for (number_SVM in seq(0, nrow(SVM_target_12))) {
+    for (number_RF in seq(0, nrow(RF_target_12))) {
+      if (number_RDA == 0 & number_SVM == 0 & number_RF == 0) {
+        
+      } else {
+        rda_i$Scores <- cbind(rda_results$Scores[1:number_RDA])
+        rda_i$Probabilities <- cbind(rda_results$Probabilities[,1:number_RDA])
+        rda_i$Classes <- cbind(rda_results$Classes[,1:number_RDA])
+        
+        ksvm_i$Scores <- cbind(ksvm_results$Scores[1:number_SVM])
+        ksvm_i$Probabilities <- cbind(ksvm_results$Probabilities[,1:number_SVM])
+        ksvm_i$Classes <- cbind(ksvm_results$Classes[,1:number_SVM])
+        
+        rf_i$Scores <- cbind(rf_results$Scores[1:number_RF])
+        rf_i$Probabilities <- cbind(rf_results$Probabilities[,1:number_RF])
+        rf_i$Classes <- cbind(rf_results$Classes[,1:number_RF])
+        
+        rank_averaging_i <- rank_averaging(rda_i, ksvm_i, rf_i, number_SVM, number_RDA, number_RF)
+        performance_rank_i <- cbind(different_thresholds(rank_averaging_i, test_set_cont_target12_spl1), number_SVM, number_RDA, number_RF)
+        performance_majority_i <- cbind(majority_number(rda_i, ksvm_i, rf_i, number_SVM, number_RDA, number_RF, test_set_cont_target12_spl1), number_SVM, number_RDA, number_RF)
+        
+        performance_rank_target12_spl1 <- rbind(performance_rank_target12_spl1, performance_rank_i)
+        performance_majority_target12_spl1 <- rbind(performance_majority_target12_spl1, performance_majority_i)
+      }
+    }
+  }
+}
+```
+
+
+**Split 2**
+
+Calculating the predictions for split 2.
+
+```{r}
+ksvm_results <- KSVM_results(SVM_target_12, test_set_cont_ROSE_target12_spl2, test_set_cont_target12_spl2,test_set_cat_ROSE_target12_spl2, test_set_cat_target12_spl2,
+                        test_set_one_ROSE_target12_spl2, test_set_one_target12_spl2, model1_SVM_target12_spl2, model2_SVM_target12_spl2, model3_SVM_target12_spl2,
+                        model4_SVM_target12_spl2, model5_SVM_target12_spl2, model6_SVM_target12_spl2, model7_SVM_target12_spl2)
+
+rda_results <- RDA_results(RDA_target_12, test_set_cont_ROSE_target12_spl2, test_set_cont_target12_spl2,test_set_cat_ROSE_target12_spl2,test_set_cat_target12_spl2,
+             test_set_one_ROSE_target12_spl2,test_set_one_target12_spl2, model1_RDA_target12_spl2,model2_RDA_target12_spl2,model3_RDA_target12_spl2, model4_RDA_target12_spl2)
+
+rf_results <- RF_results(RF_target_12,test_set_cat_rf_target12_spl2,model1_RF_target12_spl2,model2_RF_target12_spl2)
+```
+
+Saving the predictions.
+
+```{r}
+dir.create(file.path("../Results", "3. Final_models", "3.2. Testing", "3.2.1. Predictions"), recursive = TRUE, showWarnings = FALSE)
+
+saveRDS(ksvm_results, '../Results/3. Final_models/3.2. Testing/3.2.1. Predictions/svm_target_12_spl2.csv')
+saveRDS(rda_results, '../Results/3. Final_models/3.2. Testing/3.2.1. Predictions/rda_target_12_spl2.csv')
+saveRDS(rf_results, '../Results/3. Final_models/3.2. Testing/3.2.1. Predictions/rf_target_12_spl2.csv')
+```
+
+Studying all combinations of number of KSVM, RDA and RF taken. Storing performance results for each, after implementing rank averaging and majority "by number".
+
+```{r}
+rda_i <- c()
+ksvm_i <- c()
+rf_i <- c()
+performance_rank_target12_spl2 <- data.frame()
+performance_majority_target12_spl2 <- data.frame()
+
+for (number_RDA in seq(0, nrow(RDA_target_12))) {
+  for (number_SVM in seq(0, nrow(SVM_target_12))) {
+    for (number_RF in seq(0, nrow(RF_target_12))) {
+      if (number_RDA == 0 & number_SVM == 0 & number_RF == 0) {
+        
+      } else {
+        rda_i$Scores <- cbind(rda_results$Scores[1:number_RDA])
+        rda_i$Probabilities <- cbind(rda_results$Probabilities[,1:number_RDA])
+        rda_i$Classes <- cbind(rda_results$Classes[,1:number_RDA])
+        
+        ksvm_i$Scores <- cbind(ksvm_results$Scores[1:number_SVM])
+        ksvm_i$Probabilities <- cbind(ksvm_results$Probabilities[,1:number_SVM])
+        ksvm_i$Classes <- cbind(ksvm_results$Classes[,1:number_SVM])
+        
+        rf_i$Scores <- cbind(rf_results$Scores[1:number_RF])
+        rf_i$Probabilities <- cbind(rf_results$Probabilities[,1:number_RF])
+        rf_i$Classes <- cbind(rf_results$Classes[,1:number_RF])
+        
+        rank_averaging_i <- rank_averaging(rda_i, ksvm_i, rf_i, number_SVM, number_RDA, number_RF)
+        performance_rank_i <- cbind(different_thresholds(rank_averaging_i, test_set_cont_target12_spl2), number_SVM, number_RDA, number_RF)
+        performance_majority_i <- cbind(majority_number(rda_i, ksvm_i, rf_i, number_SVM, number_RDA, number_RF, test_set_cont_target12_spl2), number_SVM, number_RDA, number_RF)
+        
+        performance_rank_target12_spl2 <- rbind(performance_rank_target12_spl2, performance_rank_i)
+        performance_majority_target12_spl2 <- rbind(performance_majority_target12_spl2, performance_majority_i)
+      }
+    }
+  }
+}
+```
+
+
+### TARGET FUTURE
+
+Calculating the predictions of target_future two times, one for split.
+
+**Split 1**
+
+```{r}
+ksvm_results <- KSVM_results(SVM_target_future, test_set_cont_ROSE_targetfuture_spl1, test_set_cont_targetfuture_spl1,test_set_cat_ROSE_targetfuture_spl1, test_set_cat_targetfuture_spl1,
+                        test_set_one_ROSE_targetfuture_spl1, test_set_one_targetfuture_spl1, model1_SVM_targetfuture_spl1, model2_SVM_targetfuture_spl1, model3_SVM_targetfuture_spl1,
+                        model4_SVM_targetfuture_spl1, model5_SVM_targetfuture_spl1, model6_SVM_targetfuture_spl1, model7_SVM_targetfuture_spl1)
+
+rda_results <- RDA_results(RDA_target_future, test_set_cont_ROSE_targetfuture_spl1, test_set_cont_targetfuture_spl1,test_set_cat_ROSE_targetfuture_spl1,test_set_cat_targetfuture_spl1,
+             test_set_one_ROSE_targetfuture_spl1,test_set_one_targetfuture_spl1, model1_RDA_targetfuture_spl1,model2_RDA_targetfuture_spl1,model3_RDA_targetfuture_spl1, model4_RDA_targetfuture_spl1)
+
+rf_results <- RF_results(RF_target_future,test_set_cat_rf_targetfuture_spl1,model1_RF_targetfuture_spl1,model2_RF_targetfuture_spl1)
+```
+
+Saving the predictions.
+
+```{r}
+dir.create(file.path("../Results", "3. Final_models", "3.2. Testing", "3.2.1. Predictions"), recursive = TRUE, showWarnings = FALSE)
+
+saveRDS(ksvm_results, '../Results/3. Final_models/3.2. Testing/3.2.1. Predictions/svm_target_future_spl1.csv')
+saveRDS(rda_results, '../Results/3. Final_models/3.2. Testing/3.2.1. Predictions/rda_target_future_spl1.csv')
+saveRDS(rf_results, '../Results/3. Final_models/3.2. Testing/3.2.1. Predictions/rf_target_future_spl1.csv')
+```
+
+Studying all combinations of number of KSVM, RDA and RF taken. Storing performance results for each, after implementing rank averaging and majority "by number".
+
+```{r}
+rda_i <- c()
+ksvm_i <- c()
+rf_i <- c()
+performance_rank_targetfuture_spl1 <- data.frame()
+performance_majority_targetfuture_spl1 <- data.frame()
+
+for (number_RDA in seq(0, nrow(RDA_target_future))) {
+  for (number_SVM in seq(0, nrow(SVM_target_future))) {
+    for (number_RF in seq(0, nrow(RF_target_future))) {
+      if (number_RDA == 0 & number_SVM == 0 & number_RF == 0) {
+        
+      } else {
+        rda_i$Scores <- cbind(rda_results$Scores[1:number_RDA])
+        rda_i$Probabilities <- cbind(rda_results$Probabilities[,1:number_RDA])
+        rda_i$Classes <- cbind(rda_results$Classes[,1:number_RDA])
+        
+        ksvm_i$Scores <- cbind(ksvm_results$Scores[1:number_SVM])
+        ksvm_i$Probabilities <- cbind(ksvm_results$Probabilities[,1:number_SVM])
+        ksvm_i$Classes <- cbind(ksvm_results$Classes[,1:number_SVM])
+        
+        rf_i$Scores <- cbind(rf_results$Scores[1:number_RF])
+        rf_i$Probabilities <- cbind(rf_results$Probabilities[,1:number_RF])
+        rf_i$Classes <- cbind(rf_results$Classes[,1:number_RF])
+        
+        rank_averaging_i <- rank_averaging(rda_i, ksvm_i, rf_i, number_SVM, number_RDA, number_RF)
+        performance_rank_i <- cbind(different_thresholds(rank_averaging_i, test_set_cont_targetfuture_spl1), number_SVM, number_RDA, number_RF)
+        performance_majority_i <- cbind(majority_number(rda_i, ksvm_i, rf_i, number_SVM, number_RDA, number_RF, test_set_cont_targetfuture_spl1), number_SVM, number_RDA, number_RF)
+        
+        performance_rank_targetfuture_spl1 <- rbind(performance_rank_targetfuture_spl1, performance_rank_i)
+        performance_majority_targetfuture_spl1 <- rbind(performance_majority_targetfuture_spl1, performance_majority_i)
+      }
+    }
+  }
+}
+```
+
+
+**Split 2**
+
+```{r}
+ksvm_results <- KSVM_results(SVM_target_future, test_set_cont_ROSE_targetfuture_spl2, test_set_cont_targetfuture_spl2,test_set_cat_ROSE_targetfuture_spl2, test_set_cat_targetfuture_spl2,
+                        test_set_one_ROSE_targetfuture_spl2, test_set_one_targetfuture_spl2, model1_SVM_targetfuture_spl2, model2_SVM_targetfuture_spl2, model3_SVM_targetfuture_spl2,
+                        model4_SVM_targetfuture_spl2, model5_SVM_targetfuture_spl2, model6_SVM_targetfuture_spl2, model7_SVM_targetfuture_spl2)
+
+rda_results <- RDA_results(RDA_target_future, test_set_cont_ROSE_targetfuture_spl2, test_set_cont_targetfuture_spl2,test_set_cat_ROSE_targetfuture_spl2,test_set_cat_targetfuture_spl2,
+             test_set_one_ROSE_targetfuture_spl2,test_set_one_targetfuture_spl2, model1_RDA_targetfuture_spl2,model2_RDA_targetfuture_spl2,model3_RDA_targetfuture_spl2, model4_RDA_targetfuture_spl2)
+
+rf_results <- RF_results(RF_target_future,test_set_cat_rf_targetfuture_spl2,model1_RF_targetfuture_spl2,model2_RF_targetfuture_spl2)
+```
+
+Saving the predictions.
+
+```{r}
+dir.create(file.path("../Results", "3. Final_models", "3.2. Testing", "3.2.1. Predictions"), recursive = TRUE, showWarnings = FALSE)
+
+saveRDS(ksvm_results, '../Results/3. Final_models/3.2. Testing/3.2.1. Predictions/svm_target_future_spl2.csv')
+saveRDS(rda_results, '../Results/3. Final_models/3.2. Testing/3.2.1. Predictions/rda_target_future_spl2.csv')
+saveRDS(rf_results, '../Results/3. Final_models/3.2. Testing/3.2.1. Predictions/rf_target_future_spl2.csv')
+```
+
+Studying all combinations of number of KSVM, RDA and RF taken. Storing performance results for each, after implementing rank averaging and majority "by number".
+
+```{r}
+rda_i <- c()
+ksvm_i <- c()
+rf_i <- c()
+performance_rank_targetfuture_spl2 <- data.frame()
+performance_majority_targetfuture_spl2 <- data.frame()
+
+for (number_RDA in seq(0, nrow(RDA_target_future))) {
+  for (number_SVM in seq(0, nrow(SVM_target_future))) {
+    for (number_RF in seq(0, nrow(RF_target_future))) {
+      if (number_RDA == 0 & number_SVM == 0 & number_RF == 0) {
+        
+      } else {
+        rda_i$Scores <- cbind(rda_results$Scores[1:number_RDA])
+        rda_i$Probabilities <- cbind(rda_results$Probabilities[,1:number_RDA])
+        rda_i$Classes <- cbind(rda_results$Classes[,1:number_RDA])
+        
+        ksvm_i$Scores <- cbind(ksvm_results$Scores[1:number_SVM])
+        ksvm_i$Probabilities <- cbind(ksvm_results$Probabilities[,1:number_SVM])
+        ksvm_i$Classes <- cbind(ksvm_results$Classes[,1:number_SVM])
+        
+        rf_i$Scores <- cbind(rf_results$Scores[1:number_RF])
+        rf_i$Probabilities <- cbind(rf_results$Probabilities[,1:number_RF])
+        rf_i$Classes <- cbind(rf_results$Classes[,1:number_RF])
+        
+        rank_averaging_i <- rank_averaging(rda_i, ksvm_i, rf_i, number_SVM, number_RDA, number_RF)
+        performance_rank_i <- cbind(different_thresholds(rank_averaging_i, test_set_cont_targetfuture_spl2), number_SVM, number_RDA, number_RF)
+        performance_majority_i <- cbind(majority_number(rda_i, ksvm_i, rf_i, number_SVM, number_RDA, number_RF, test_set_cont_targetfuture_spl2), number_SVM, number_RDA, number_RF)
+        
+        performance_rank_targetfuture_spl2 <- rbind(performance_rank_targetfuture_spl2, performance_rank_i)
+        performance_majority_targetfuture_spl2 <- rbind(performance_majority_targetfuture_spl2, performance_majority_i)
+      }
+    }
+  }
+}
+```
+
+
+### Mean and sd
+
+Calculating the mean and standard deviation (sd) of the three performance metrics (Accuracy, Sensitivity, and Specificity) for a specific target and combination of ensembling models (number of SVM, RDA and RF). The mean and sd are calculated row-wise over the concatenation of the 2 data frames (split1 and split2) for the target in question.
+
+
+#### Target 1
+
+**Rank averaging**
+
+```{r}
+target_1_rank <- performance_rank_target1_spl1[,c(4,5,6,7,8)]
+
+for (metric in c("Accuracy", "Sensitivity", "Specificity")) {
+  target_1_metric <- cbind(performance_rank_target1_spl1[,metric], performance_rank_target1_spl2[,metric])
+  
+  target_1_rank[,paste0("mean_",metric)] <- apply(target_1_metric, 1, mean)
+  target_1_rank[,paste0("sd_",metric)] <- apply(target_1_metric, 1, sd)
+}
+
+(target_1_rank <- target_1_rank[with(target_1_rank, order(target_1_rank[, "mean_Sensitivity"], target_1_rank[,"mean_Specificity"], decreasing = TRUE)), ])
+```
+
+**Majority by number**
+
+```{r}
+target_1_majority <- performance_majority_target1_spl1[,c(4,5,6,7,8)]
+
+for (metric in c("Accuracy", "Sensitivity", "Specificity")) {
+  target_1_metric <- cbind(performance_majority_target1_spl1[,metric], performance_majority_target1_spl2[,metric])
+  
+  target_1_majority[,paste0("mean_",metric)] <- apply(target_1_metric, 1, mean)
+  target_1_majority[,paste0("sd_",metric)] <- apply(target_1_metric, 1, sd)
+}
+
+(target_1_majority <- target_1_majority[with(target_1_majority, order(0.6*target_1_majority[, "mean_Sensitivity"]+0.4*target_1_majority[,"mean_Specificity"], decreasing = TRUE)), ])
+```
+
+
+#### Target 6
+
+**Rank averaging**
+
+```{r}
+target_6_rank <- performance_rank_target6_spl1[,c(4,5,6,7,8)]
+
+for (metric in c("Accuracy", "Sensitivity", "Specificity")) {
+  target_6_metric <- cbind(performance_rank_target6_spl1[,metric], performance_rank_target6_spl2[,metric])
+  
+  target_6_rank[,paste0("mean_",metric)] <- apply(target_6_metric, 1, mean)
+  target_6_rank[,paste0("sd_",metric)] <- apply(target_6_metric, 1, sd)
+}
+
+(target_6_rank <- target_6_rank[with(target_6_rank, order(target_6_rank[, "mean_Sensitivity"], target_6_rank[,"mean_Specificity"], decreasing = TRUE)), ])
+```
+
+**Majority by number**
+
+```{r}
+target_6_majority <- performance_majority_target6_spl1[,c(4,5,6,7,8)]
+
+for (metric in c("Accuracy", "Sensitivity", "Specificity")) {
+  target_6_metric <- cbind(performance_majority_target6_spl1[,metric], performance_majority_target6_spl2[,metric])
+  
+  target_6_majority[,paste0("mean_",metric)] <- apply(target_6_metric, 1, mean)
+  target_6_majority[,paste0("sd_",metric)] <- apply(target_6_metric, 1, sd)
+}
+
+(target_6_majority <- target_6_majority[with(target_6_majority, order(0.6*target_6_majority[, "mean_Sensitivity"]+0.4*target_6_majority[,"mean_Specificity"], decreasing = TRUE)), ])
+```
+
+
+#### Target 12
+
+**Rank averaging**
+
+```{r}
+target_12_rank <- performance_rank_target12_spl1[,c(4,5,6,7,8)]
+
+for (metric in c("Accuracy", "Sensitivity", "Specificity")) {
+  target_12_metric <- cbind(performance_rank_target12_spl1[,metric], performance_rank_target12_spl2[,metric])
+  
+  target_12_rank[,paste0("mean_",metric)] <- apply(target_12_metric, 1, mean)
+  target_12_rank[,paste0("sd_",metric)] <- apply(target_12_metric, 1, sd)
+}
+
+(target_12_rank <- target_12_rank[with(target_12_rank, order(target_12_rank[, "mean_Sensitivity"], target_12_rank[,"mean_Specificity"], decreasing = TRUE)), ])
+```
+
+**Majority by number**
+
+```{r}
+target_12_majority <- performance_majority_target12_spl1[,c(4,5,6,7,8)]
+
+for (metric in c("Accuracy", "Sensitivity", "Specificity")) {
+  target_12_metric <- cbind(performance_majority_target12_spl1[,metric], performance_majority_target12_spl2[,metric])
+  
+  target_12_majority[,paste0("mean_",metric)] <- apply(target_12_metric, 1, mean)
+  target_12_majority[,paste0("sd_",metric)] <- apply(target_12_metric, 1, sd)
+}
+
+(target_12_majority <- target_12_majority[with(target_12_majority, order(0.6*target_12_majority[, "mean_Sensitivity"]+0.4*target_12_majority[,"mean_Specificity"], decreasing = TRUE)), ])
+```
+
+
+#### Target future
+
+**Rank averaging**
+
+```{r}
+target_future_rank <- performance_rank_targetfuture_spl1[,c(4,5,6,7,8)]
+
+for (metric in c("Accuracy", "Sensitivity", "Specificity")) {
+  target_future_metric <- cbind(performance_rank_targetfuture_spl1[,metric], performance_rank_targetfuture_spl2[,metric])
+  
+  target_future_rank[,paste0("mean_",metric)] <- apply(target_future_metric, 1, mean)
+  target_future_rank[,paste0("sd_",metric)] <- apply(target_future_metric, 1, sd)
+}
+
+(target_future_rank <- target_future_rank[with(target_future_rank, order(target_future_rank[, "mean_Sensitivity"], target_future_rank[,"mean_Specificity"], decreasing = TRUE)), ])
+```
+
+**Majority by number**
+
+```{r}
+target_future_majority <- performance_majority_targetfuture_spl1[,c(4,5,6,7,8)]
+
+for (metric in c("Accuracy", "Sensitivity", "Specificity")) {
+  target_future_metric <- cbind(performance_majority_targetfuture_spl1[,metric], performance_majority_targetfuture_spl2[,metric])
+  
+  target_future_majority[,paste0("mean_",metric)] <- apply(target_future_metric, 1, mean)
+  target_future_majority[,paste0("sd_",metric)] <- apply(target_future_metric, 1, sd)
+}
+
+(target_future_majority <- target_future_majority[with(target_future_majority, order(0.6*target_future_majority[, "mean_Sensitivity"]+0.4*target_future_majority[,"mean_Specificity"], decreasing = TRUE)), ])
+```
+# Filter thresholds
+
+Taking the ensembling method rank averaging and filtering out thresholds smaller than 0.35 and bigger than 0.65.
+
+```{r}
+target_1 <- target_1_rank[target_1_rank$Threshold >= 0.35 & target_1_rank$Threshold <= 0.65,]
+
+target_6 <- target_6_rank[target_6_rank$Threshold >= 0.35 & target_6_rank$Threshold <= 0.65,]
+
+target_12 <- target_12_rank[target_12_rank$Threshold >= 0.35 & target_12_rank$Threshold <= 0.65,]
+
+target_future <- target_future_rank[target_future_rank$Threshold >= 0.35 & target_future_rank$Threshold <= 0.65,]
+```
+
+**delete_repeated()**
+
+Function that given a data frame delete the rows that have the same sensitivity and specificity. This function returns the data frame without the deleted rows. 
+
+```{r}
+delete_repeated <- function(target) {
+  previous_Sensitivity <- target[1,"mean_Sensitivity"]
+  previous_Specificity <- target[1,"mean_Specificity"]
+  target_del <- data.frame(target[1,])
+  for (i in 2:nrow(target)) {
+    if (! (target[i, "mean_Sensitivity"] == previous_Sensitivity & target[i, "mean_Specificity"] == previous_Specificity)) {
+      target_del <- rbind(target_del, target[i, ])
+      previous_Sensitivity <- target[i, "mean_Sensitivity"]
+      previous_Specificity <- target[i, "mean_Specificity"]
+    }
+  }
+  
+  return(target_del)
+}
+```
+
+Calling the **delete_repeated()** function and ordering the dataframe by the score : 0.6 x sensitivity + 0.4 x specificity.
+
+```{r}
+target_1_del <- delete_repeated(target_1)
+target_1_del <- target_1_del[with(target_1_del, order(0.6*target_1_del[, "mean_Sensitivity"]+0.4*target_1_del[,"mean_Specificity"], decreasing = TRUE)), ]
+
+target_6_del <- delete_repeated(target_6)
+target_6_del <- target_6_del[with(target_6_del, order(0.6*target_6_del[, "mean_Sensitivity"]+0.4*target_6_del[,"mean_Specificity"], decreasing = TRUE)), ]
+
+target_12_del <- delete_repeated(target_12)
+target_12_del <- target_12_del[with(target_12_del, order(0.6*target_12_del[, "mean_Sensitivity"]+0.4*target_12_del[,"mean_Specificity"], decreasing = TRUE)), ]
+
+target_future_del <- delete_repeated(target_future)
+target_future_del <- target_future_del[with(target_future_del, order(0.6*target_future_del[, "mean_Sensitivity"]+0.4*target_future_del[,"mean_Specificity"], decreasing = TRUE)), ]
+```
+
+### Saving the results
+
+Saving the rank averaging results for thresholds between 0.2 and 0.65.
+
+```{r}
+dir.create(file.path("../Results", "3. Final_models", "3.2. Testing", "3.2.2. Final_averaged"), recursive = TRUE, showWarnings = FALSE)
+
+write.csv(target_1_del, file = '../Results/3. Final_models/3.2. Testing/3.2.2. Final_averaged/target_1.csv')
+write.csv(target_6_del, file = '../Results/3. Final_models/3.2. Testing/3.2.2. Final_averaged/target_6.csv')
+write.csv(target_12_del, file = '../Results/3. Final_models/3.2. Testing/3.2.2. Final_averaged/target_12.csv')
+write.csv(target_future_del, file = '../Results/3. Final_models/3.2. Testing/3.2.2. Final_averaged/target_future.csv')
+```

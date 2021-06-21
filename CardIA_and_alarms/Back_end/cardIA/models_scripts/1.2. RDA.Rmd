@@ -1,0 +1,418 @@
+---
+title: "RDA"
+output: ''
+---
+
+This script implements Linear Discriminant Analysis (LDA) and Regularized Discriminant Analysis (RDA).
+
+```{r}
+library(class)
+library(car)
+library(tables)
+library(RcmdrMisc)
+library(dplyr)
+library(MASS)
+library(klaR)
+library(splitstackshape)
+library(kernlab)
+library(rpart)
+library(caret)
+library(randomForest)
+library(ROSE)
+library(DMwR2)
+library(caret)
+```
+
+### Parameters
+
+Parameters of the script:
+
+*   **csv**: "factors_2_numbers_del.csv", "factors_2_numbers_del_cont.csv" or "onehot_del_cont.csv". CSV containing the data to work with. 
+
+*   **data**: "continuous", "categorized" or "onehot".
+
+*   **scaled**: TRUE, FALSE. TRUE if continuous data is scaled.
+
+*   **target_name**: "target_1", "target_6", "target_12" or "target_future".
+
+```{r}
+csv <- "factors_2_numbers_del.csv"
+data <- "categorized"
+target_name <- "target_1"
+
+scaled <- FALSE
+set.seed <- 433
+```
+
+
+### Reading the data
+
+Reading continuous, categorized, or one hot data. Deleting some columns which values are incorrect or not useful for training the models.
+
+```{r}
+X <- read.csv(paste0('../../Data/',csv))
+drop <- names(X) %in% c("mg_sacu_seguim", "nhc")
+X <- subset(X, select = !drop)
+```
+
+### Factors and ordinal variables
+
+Defining categorical variables as factors. The following vectors (categorical and ordered) contain the names of all categorical and ordinal variables.
+
+1. For non-one-hot data:
+
+```{r}
+if (data != "onehot") { 
+  
+  categorical <- c('sexe','data_visita_year','data_visita_month','data_visita_week','data_visita_day','procedencia','motiu_derivacio___1','motiu_derivacio___2','motiu_derivacio___3','motiu_derivacio___4','motiu_derivacio___5','motiu_derivacio___6','motiu_derivacio___7','motiu_derivacio___8','etiologia___1','etiologia___2','etiologia___3','etiologia___4','etiologia___5','etiologia___6','etiologia___7','etiologia___8','etiologia___9','etiologia___10','etiologia___11','etiologia___12','etiologia___13','antecedents___1','antecedents___2','antecedents___3','antecedents___4','antecedents___5','antecedents___6','antecedents___7','antecedents___8','antecedents___9','antecedents___10','antecedents___11','antecedents___12','antecedents___21','antecedents___13','antecedents___14','antecedents___15','antecedents___16','antecedents___17','antecedents___20','neoplasia_estat','neoplasia_qt','tipus_iqprevia','insuf_mitral_seguim','ritme_base_seguim','trastorn_conduccio_t_v_1','marca','tto_ev_tipo___1','tto_ev_tipo___2','tto_ev_tipo___3','tto_ev_tipo___4','tto_ev_tipo___5','classe_funcional_seguim','ttm_seguim___8','ttm_seguim___9','ttm_seguim___10','ttm_seguim___11','ttm_seguim___12','ttm_seguim___13','ttm_seguim___14','ttm_seguim___15','ttm_seguim___16','ttm_seguim___17','ttm_seguim___18','ttm_seguim___20','ttm_seguim___21','ttm_seguim___23','ttm_seguim___24','ttm_seguim___25','ttm_seguim___26','ttm_seguim___27','ttm_seguim___28','ttm_seguim___29','ttm_seguim___30','ttm_seguim___33','mg_diur_segui','mg_tiaz_seguim','mg_anti_seguim','mg_ieca_seguim','mg_ara2_seguim','mg_beta_seguim','mg_islgt2_seguim','mg_naco_seguim','estacio_visita','IMC','mg_diur_segui')
+
+  ordered <- c('insuf_mitral_seguim','mg_tiaz_seguim','mg_anti_seguim','mg_ieca_seguim','mg_ara2_seguim','mg_beta_seguim','mg_islgt2_seguim','mg_naco_seguim','IMC','classe_funcional_seguim','mg_diur_segui')
+}
+```
+
+2. For categorized data:
+
+```{r}
+if (data == "categorized") { 
+  categorized <- c("feve_seguim", "dtdve_seguim", "tiv_seguim", "paret", "auricula_seguim", "temps_desac_seguim", 
+                 "tapse_seguim", "paps_seguim", "amplada_qrs_seguim", "hb_seguim", "ferritina_seguim", "sat_transf_seguim", "ha1c_seguim", "creat_seguim", "fge_seguim", 
+                 "urat_seguim", "sodi_seguim", "potassi_seguim", "cloro_seguim", "tni_seguim", "probnp_seguim", 
+                 "cole_seguim", "colehdl_segui", "coleldl_segui", "trigli_seguim", "prot_seguim", "albu_seguim", 
+                 "ca125_seguim", "st2_seguim", "prot_creorin_seguim", "albu_crorin_seguim",
+                 "ona_e_seguim", "ona_a_seguim", "ona_e_prima_seguim")
+  categorical <- c(categorical, categorized)
+  ordered <- c(ordered, categorized)
+}
+```
+
+3. For one-hot data:
+
+```{r}
+if (data == "onehot") {
+  one_hot <- c()
+  
+  for (c in colnames(X)) {
+    if (length(unique(X[,c])) <= 2) {
+      one_hot <- c(one_hot, c)
+    }
+  }
+  
+  categorical <- c(one_hot, 'data_visita_year','data_visita_month','data_visita_week','data_visita_day','insuf_mitral_seguim','classe_funcional_seguim','mg_diur_segui','mg_tiaz_seguim','mg_anti_seguim','mg_ieca_seguim','mg_ara2_seguim','mg_beta_seguim','mg_islgt2_seguim','mg_naco_seguim','IMC')
+  ordered <- c('insuf_mitral_seguim','classe_funcional_seguim','mg_diur_segui','mg_tiaz_seguim','mg_anti_seguim','mg_ieca_seguim','mg_ara2_seguim','mg_beta_seguim','mg_islgt2_seguim','mg_naco_seguim','IMC')
+}
+```
+
+Defining categorical variables as "factors" and ordinal variables as "ordered". Otherwise, they would be interpreted as integers.
+
+```{r}
+for (c in categorical) {
+  index_c <- which(colnames(X) == c)
+  X[,index_c] <- as.factor(X[,index_c])
+}
+
+for (o in ordered) {
+  index_o <- which(colnames(X) == o)
+  X[,index_o] <- as.ordered(X[,index_o])
+}
+```
+
+
+### Stratified sampling
+
+Splitting the data into **0.7 training and 0.3 test**. Performing stratified sampling so the proportion of class members in the training and test sets is homogeneous for all target variables.
+
+```{r}
+set.seed(set.seed)
+index_c <- which(colnames(X) %in% c("target_1", "target_6","target_12", "target_future"))
+variables <- X[,-c(index_c)]
+training_set <- as.data.frame(stratified(X, c("target_1", "target_6","target_12", "target_future"), 0.7))
+test_set <- as.data.frame(setdiff(X, training_set))
+```
+
+Changing the name of the **target variable** in question to "target", and dropping other target variables.
+
+```{r}
+names(training_set)[names(training_set) == target_name] <- "target"
+drop <- names(training_set) %in% c("target_1", "target_6", "target_12", "target_future")
+training_set <- subset(training_set, select = !drop)
+
+names(test_set)[names(test_set) == target_name] <- "target"
+drop <- names(test_set) %in% c("target_1", "target_6", "target_12", "target_future")
+test_set <- subset(test_set, select = !drop)
+```
+
+Deleting binary categorical variables containing less than three values for one of the categories. Otherwise, it would lead to computational errors.
+
+```{r}
+set.seed(set.seed)
+name_columns <- c()
+
+for ( c in colnames(training_set)) {
+  if(length(unique(training_set[,c])) <= 2) {
+    repeticions <- sum(training_set[,c] == unique(training_set[,c])[1])
+    if (repeticions <= 2 || (nrow(training_set)-repeticions) <= 2) {
+      name_columns <- c(name_columns, c)
+    }
+  }
+}
+
+drop <- (names(training_set) %in% name_columns)
+training_set <- subset(training_set, select = !drop)
+test_set <- subset(test_set, select = !drop)
+```
+
+
+### Data standardization
+
+Standardizing numerical variables to force them to have 0 mean and 1 standard deviation (sd). The standardization of the test set is performed with the same mean and sd of the training set.
+
+```{r}
+set.seed(set.seed)
+if (!scaled) {
+  numerical <- !(colnames(training_set) %in% categorical)
+  numerical[length(numerical)] <- FALSE
+  normParam <- preProcess(training_set[, numerical])
+  training_set_num <- predict(normParam, training_set[, numerical])
+  test_set_num <- predict(normParam, test_set[, numerical])
+ 
+  training_set[, numerical] <- data.frame(scale(training_set_num))
+  test_set[, numerical] <- data.frame(test_set_num)
+}
+```
+
+
+### Balancing method
+
+**Oversampling**
+
+Oversampling the minority class (1) until reaching the same number of observations as the majority class (0).
+
+```{r}
+oversampling_fun <- function(training_data) {
+  set.seed(set.seed)
+  training_set_over <- ovun.sample(target ~ ., data = training_data, method = 'over', N = c(sum(training_data$target == 0)*2))$data
+  return(training_set_over)
+}
+```
+
+**Undersampling**
+
+Undersampling the majority class (0) until reaching the same number of observations as the minority class (1).
+
+```{r}
+undersampling_fun <- function(training_data) {
+  set.seed(set.seed)
+  training_set_under <- ovun.sample(target ~ ., data = training_data, method = 'under', N = sum(training_data$target == 1)*2)$data
+  
+  return(training_set_under)
+}
+```
+
+**Both**
+
+Combination of both oversampling and undersampling: the majority class is undersampled without replacement and the minority class is oversampled with replacement. In this case, the final total number of training rows is 1.3 times the original number of training rows.
+
+```{r}
+both_fun <- function(training_data) {
+  set.seed(set.seed)
+  training_set_both <- ovun.sample(target ~ ., data = training_data, method = 'both', p = .5, N = nrow(training_data)*1.3)$data
+  
+  return(training_set_both)
+}
+```
+
+**ROSE**
+
+Generating data synthetically providing a better estimate of original data.
+
+```{r}
+ROSE_fun <- function(training_set, test_set, o) {
+  set.seed(set.seed)
+  aux <- rbind(training_set, test_set)
+  for (o in ordered) {
+    index_o <- which(colnames(aux) == o)
+    aux[,index_o] <- as.factor(as.numeric((aux[,index_o])))
+  }
+   
+  
+  training_set_ROSE <- aux[1:nrow(training_set),]
+  test_set_ROSE <- aux[(nrow(training_set)+1):nrow(aux),]
+  training_set_ROSE <- ROSE(target ~ ., data = training_set_ROSE)$data
+  
+  return(list(training_set_ROSE, test_set_ROSE))
+}
+```
+
+
+### Some functions of use
+
+Definition of some functions that will be used during the training and testing of the ML models.
+
+1. KK cross-validation function: kk_crossvalidation().
+
+2. Calculating the errors: err_fun().
+
+#### 1. KK cross-validation
+
+Function that performs a KK CV over the training set. The split of the training set into K folds is stratified by the target.
+
+The validation performance at each step (at each time and fold) is stored as a new row. All performance results are stored in a data frame called error. Finally, calculates the mean of each performance column and rounds to 2 decimals. The performance metrics calculated are (1) Accuracy, (2) Sensitivity, (3) Specificity.
+
+```{r}
+kk_crossvalidation <- function(times = 3, k = 3, training_set, type = NULL, p = NULL, balancing = "none") {
+  set.seed(set.seed)
+  error <- c()
+  for (time in 1:times) {
+    folds <- createFolds(factor(training_set$target), k = k, list = TRUE)
+    for (fold in folds) {
+      validation_data <<- data.frame(training_set[fold, ])
+      training_data <<- data.frame(training_set[-fold, ])
+        
+      if (balancing == "oversampling") {training_data <- oversampling_fun(training_data)}
+      else if (balancing == "undersampling") {training_data <- undersampling_fun(training_data)}
+      else if (balancing == "both") {training_data <- both_fun(training_data)}
+      if (balancing == "ROSE") {
+        ROSE_datasets <<- ROSE_fun(training_data, validation_data)
+        training_data <<- data.frame(ROSE_datasets[1])
+        validation_data <<- data.frame(ROSE_datasets[2])
+      } 
+      error <- rbind(error, da_fun(training_set = training_data, validation_set = validation_data, type = type, p = p))
+    }
+  }
+  
+  return (round(colMeans(error),2))
+}
+```
+
+#### 2. Calculating the errors
+
+Function that given a confusion matrix, extracts and returns three evaluation metrics in a data frame:
+
+(1) Accuracy (that is, the proportion of correctly predicted classes out of all the validation data points). 
+(2) Sensitivity (that is, the proportion of 1's which are correctly classified as 1's). 
+(3) Specificity (that is, the proportion of 0's which are correctly classified as 0's).
+
+```{r}
+err_fun <- function(confusion_matrix) {
+  set.seed(set.seed)
+  if (length(confusion_matrix) == 4) {
+    Accuracy <- 100*(confusion_matrix[1]+confusion_matrix[4])/sum(confusion_matrix)
+    Sensitivity <- 100*(confusion_matrix[4])/(confusion_matrix[3]+confusion_matrix[4])
+    Specificity <- 100*(confusion_matrix[1])/(confusion_matrix[1]+confusion_matrix[2])
+  } else if (rownames(confusion_matrix) == 0) {
+    Accuracy <- confusion_matrix[1]/sum(confusion_matrix)*100
+    Sensitivity <- 0
+    Specificity <- 100
+  } else if (rownames(confusion_matrix) == 1) {
+    Accuracy <- confusion_matrix[2]/sum(confusion_matrix)*100
+    Sensitivity <- 100
+    Specificity <- 0
+  }
+  
+  return(cbind(Accuracy, Sensitivity, Specificity))
+}
+```
+
+
+### Classification models
+
+To access how these models will generalize to an independent data set and flag overfitting problems, we perform 3x3 Cross-Validation (CV) to later choose the best prior for class 1.
+
+**da_fun()**
+
+Function that given a training set, a validation set, a type (linear or regularized), and a prior, trains LDA if type == "linear" or RDA if type == "regularized" for the prior in p parameter. Calculates the predictions for the validation set and returns performance evaluation (Accuracy, Sensitivity, and Specificity) from the confusion matrix.
+
+```{r}
+da_fun <- function(training_set, validation_set, type, p) {
+    set.seed(set.seed)
+    i <- which(colnames(validation_set) == "target")
+
+    if (type == "linear") my.da.TR <- lda(target ~ ., data = training_set, prior = p)
+    else if (type == "regularized") my.da.TR <- rda(target ~ ., data =  training_set,  prior = p)
+    
+    fit <- predict(my.da.TR, newdata = validation_set[,-c(i)])$class
+    confusion_matrix <- table(fit, validation_set[, c(i)])
+    
+    return(err_fun(confusion_matrix))
+}
+```
+
+**err_da()**
+
+Function that given a training set and a balancing method, executes LDA or RDA methods depending on a given type. The method is executed for priors 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9 over a 3x3 CV. Returns a data frame with performance evaluation metrics (Accuracy, Sensitivity, and Specificity) for each prior in a separate row.
+
+```{r}
+err_da <- function(training_set, type, balancing) {
+  set.seed(set.seed)
+  i <- 1
+  error_p <- c()
+  probs <- seq(0.1, 0.9, by = 0.1)
+  
+  for (p in probs) {
+    error <- c(kk_crossvalidation(training_set = training_set, type = type, p = c(1-p, p), balancing = balancing), p)
+    error_p <- rbind(error_p, error)
+    i <- i+1
+  }
+  
+  return(error_p)
+}
+```
+
+
+### Training and evaluating (cross-validation)
+
+Calculating performance for LDA, RDA, and all balancing methods. The balancing method is applied to the folds of the training set dedicated to training the models at each step of the cross-validation to prevent overfitting.
+
+```{r setup, include=FALSE}}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+set.seed(set.seed)
+lda_baseline <- try(cbind(err_da(training_set, "linear", "baseline"), csv, "lda", "baseline"))
+lda_under <- try(cbind(err_da(training_set, "linear", "undersampling"), csv, "lda", "under"))
+lda_over <- try(cbind(err_da(training_set, "linear", "oversampling"), csv, "lda", "over"))
+lda_both <- try(cbind(err_da(training_set, "linear", "both"), csv, "lda", "both"))
+lda_ROSE <- try(cbind(err_da(training_set, "linear", "ROSE"), csv, "lda", "ROSE"))
+
+rda_baseline <- try(cbind(err_da(training_set,"regularized", "baseline"), csv, "rda", "baseline"))
+rda_under <- try(cbind(err_da(training_set,"regularized", "undersampling"), csv, "rda", "under"))
+rda_over <- try(cbind(err_da(training_set,"regularized", "oversampling"), csv, "rda", "over"))
+rda_both <- try(cbind(err_da(training_set,"regularized", "both"), csv, "rda", "both"))
+rda_ROSE <- try(cbind(err_da(training_set,"regularized", "ROSE"), csv, "rda", "ROSE"))
+```
+
+Concatenating performance results in a single data frame.
+
+```{r}
+cv_result <- data.frame()
+  
+for (result in list(lda_baseline, lda_under, lda_over, lda_both, lda_ROSE, rda_baseline, rda_under, rda_over, rda_both, rda_ROSE)) {
+  if (length(result) != 1) {
+    cv_result <- rbind(cv_result, result)
+  }
+}
+```
+
+Naming the columns and sorting the rows in decreasing order: 0.6·Sensitivity + 0.4·Specificity.
+
+```{r}
+colnames(cv_result) <- c("Accuracy", "Sensitivity", "Specificity", "Prior", "Data", "Model", "Balancing")
+
+for (i in 1:3) {
+  options(digits=5)
+  cv_result[,i] <- as.numeric(paste(cv_result[,i]))
+}
+
+final_models_ordered <- cv_result[with(cv_result, order(0.6*cv_result[,2]+0.4*cv_result[,3], decreasing = TRUE)), ]
+rownames(final_models_ordered) <- NULL
+final_models_ordered
+```
+
+#### Saving the results
+
+Saving the results to the folder "1.2. RDA".
+
+```{r}
+dir.create(file.path("../Results", "1. Cross_Validation", "1.2. RDA"), recursive = TRUE, showWarnings = FALSE)
+
+file_name <- paste0('../Results/1. Cross_Validation/1.2. RDA/', target_name, '_RDA_', csv)
+write.csv(final_models_ordered, file = file_name)
+```

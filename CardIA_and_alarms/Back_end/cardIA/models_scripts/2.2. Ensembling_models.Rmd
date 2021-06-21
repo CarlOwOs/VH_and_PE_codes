@@ -1,0 +1,309 @@
+---
+title: "Ensembling models (2)"
+output: ''
+---
+
+Averaging the performance metrics of all the studied ensembling combinations of SVM, RF, and RDA, for average ranking and majority methods and over 10 different seeds.
+
+```{r}
+library(class)
+library(car)
+library(tables)
+library(RcmdrMisc)
+library(dplyr)
+library(MASS)
+library(klaR)
+library(splitstackshape)
+library(kernlab)
+library(rpart)
+library(caret)
+library(randomForest)
+library(ROSE)
+library(DMwR2)
+```
+
+### Import data
+
+Import the output CSV's of 'ensembling_models (1).Rmd'. Each CSV contains performance results for a given target and seed.
+
+```{r}
+# Target 1
+target_1_seed_123_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_1_seed_123_majority.csv')
+target_1_seed_123_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_1_seed_123_rank.csv')
+target_1_seed_134_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_1_seed_134_majority.csv')
+target_1_seed_134_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_1_seed_134_rank.csv')
+target_1_seed_145_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_1_seed_145_majority.csv')
+target_1_seed_145_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_1_seed_145_rank.csv')
+target_1_seed_167_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_1_seed_167_majority.csv')
+target_1_seed_167_rank<- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_1_seed_167_rank.csv')
+target_1_seed_178_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_1_seed_178_rank.csv')
+target_1_seed_178_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_1_seed_178_majority.csv')
+target_1_seed_189_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_1_seed_189_rank.csv')
+target_1_seed_189_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_1_seed_189_majority.csv')
+target_1_seed_211_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_1_seed_211_rank.csv')
+target_1_seed_211_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_1_seed_211_majority.csv')
+target_1_seed_232_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_1_seed_232_rank.csv')
+target_1_seed_232_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_1_seed_232_majority.csv')
+target_1_seed_367_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_1_seed_367_rank.csv')
+target_1_seed_367_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_1_seed_367_majority.csv')
+target_1_seed_455_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_1_seed_455_rank.csv')
+target_1_seed_455_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_1_seed_455_majority.csv')
+
+# Target 6
+target_6_seed_123_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_6_seed_123_majority.csv')
+target_6_seed_123_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_6_seed_123_rank.csv')
+target_6_seed_134_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_6_seed_134_majority.csv')
+target_6_seed_134_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_6_seed_134_rank.csv')
+target_6_seed_145_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_6_seed_145_majority.csv')
+target_6_seed_145_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_6_seed_145_rank.csv')
+target_6_seed_167_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_6_seed_167_majority.csv')
+target_6_seed_167_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_6_seed_167_rank.csv')
+target_6_seed_178_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_6_seed_178_rank.csv')
+target_6_seed_178_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_6_seed_178_majority.csv')
+target_6_seed_189_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_6_seed_189_rank.csv')
+target_6_seed_189_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_6_seed_189_majority.csv')
+target_6_seed_211_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_6_seed_211_rank.csv')
+target_6_seed_211_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_6_seed_211_majority.csv')
+target_6_seed_232_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_6_seed_232_rank.csv')
+target_6_seed_232_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_6_seed_232_majority.csv')
+target_6_seed_367_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_6_seed_367_rank.csv')
+target_6_seed_367_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_6_seed_367_majority.csv')
+target_6_seed_455_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_6_seed_455_rank.csv')
+target_6_seed_455_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_6_seed_455_majority.csv')
+
+# Target 12
+target_12_seed_123_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_12_seed_123_rank.csv')
+target_12_seed_123_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_12_seed_123_majority.csv')
+target_12_seed_134_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_12_seed_134_rank.csv')
+target_12_seed_134_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_12_seed_134_majority.csv')
+target_12_seed_145_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_12_seed_145_rank.csv')
+target_12_seed_145_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_12_seed_145_majority.csv')
+target_12_seed_167_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_12_seed_167_rank.csv')
+target_12_seed_167_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_12_seed_167_majority.csv')
+target_12_seed_178_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_12_seed_178_rank.csv')
+target_12_seed_178_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_12_seed_178_majority.csv')
+target_12_seed_189_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_12_seed_189_rank.csv')
+target_12_seed_189_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_12_seed_189_majority.csv')
+target_12_seed_211_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_12_seed_211_rank.csv')
+target_12_seed_211_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_12_seed_211_majority.csv')
+target_12_seed_232_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_12_seed_232_rank.csv')
+target_12_seed_232_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_12_seed_232_majority.csv')
+target_12_seed_367_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_12_seed_367_rank.csv')
+target_12_seed_367_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_12_seed_367_majority.csv')
+target_12_seed_455_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_12_seed_455_rank.csv')
+target_12_seed_455_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_12_seed_455_majority.csv')
+
+# Target future
+target_future_seed_123_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_future_seed_123_rank.csv')
+target_future_seed_123_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_future_seed_123_majority.csv')
+target_future_seed_134_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_future_seed_134_rank.csv')
+target_future_seed_134_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_future_seed_134_majority.csv')
+target_future_seed_145_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_future_seed_145_rank.csv')
+target_future_seed_145_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_future_seed_145_majority.csv')
+target_future_seed_167_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_future_seed_167_rank.csv')
+target_future_seed_167_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_future_seed_167_majority.csv')
+target_future_seed_178_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_future_seed_178_rank.csv')
+target_future_seed_178_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_future_seed_178_majority.csv')
+target_future_seed_189_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_future_seed_189_rank.csv')
+target_future_seed_189_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_future_seed_189_majority.csv')
+target_future_seed_211_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_future_seed_211_rank.csv')
+target_future_seed_211_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_future_seed_211_majority.csv')
+target_future_seed_232_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_future_seed_232_rank.csv')
+target_future_seed_232_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_future_seed_232_majority.csv')
+target_future_seed_367_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_future_seed_367_rank.csv')
+target_future_seed_367_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_future_seed_367_majority.csv')
+target_future_seed_455_rank <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_future_seed_455_rank.csv')
+target_future_seed_455_majority <- read.csv('../Results/2. Ensembling_models/2.1. Ensembling_seeds/target_future_seed_455_majority.csv')
+```
+
+
+### Mean and sd
+
+Calculating the mean and standard deviation (sd) of the three performance metrics (Accuracy, Sensitivity, and Specificity) for a specific target and combination of ensembling models (number of SVM, RDA and RF). The mean and sd are calculated row-wise over the concatenation of the 10 data frames (10 seeds) for the target in question.
+
+
+#### Target 1
+
+**Rank averaging**
+
+```{r}
+target_1_rank <- target_1_seed_167_rank[,c(5,6,7,8,9)]
+
+for (metric in c("Accuracy", "Sensitivity", "Specificity")) {
+  target_1_metric <- cbind(target_1_seed_123_rank[,metric], target_1_seed_134_rank[,metric], target_1_seed_145_rank[,metric], target_1_seed_167_rank[,metric],
+                           target_1_seed_178_rank[,metric], target_1_seed_189_rank[,metric], target_1_seed_211_rank[,metric], target_1_seed_232_rank[,metric],
+                           target_1_seed_367_rank[,metric], target_1_seed_455_rank[,metric])
+  
+  target_1_rank[,paste0("mean_",metric)] <- apply(target_1_metric, 1, mean)
+  target_1_rank[,paste0("sd_",metric)] <- apply(target_1_metric, 1, sd)
+}
+
+(target_1_rank <- target_1_rank[with(target_1_rank, order(0.6*target_1_rank[, "mean_Sensitivity"]+0.4*target_1_rank[,"mean_Specificity"], decreasing = TRUE)), ])
+```
+```{r}
+rows_targetfuture <- (target_future_rank$number_SVM == 1 & target_future_rank$number_RDA == 0 & target_future_rank$number_RF == 0 & target_future_rank$Threshold == 0.5)     
+target_future_rank[rows_targetfuture,]
+```
+
+**Majority by number**
+
+```{r}
+target_1_majority <- target_1_seed_167_majority[,c(5,6,7,8,9)]
+
+for (metric in c("Accuracy", "Sensitivity", "Specificity")) {
+  target_1_metric <- cbind(target_1_seed_123_majority[,metric], target_1_seed_134_majority[,metric], target_1_seed_145_majority[,metric],
+                           target_1_seed_167_majority[,metric], target_1_seed_178_majority[,metric], target_1_seed_189_majority[,metric],
+                           target_1_seed_211_majority[,metric], target_1_seed_232_majority[,metric], target_1_seed_367_majority[,metric],
+                           target_1_seed_455_majority[,metric])
+  
+  target_1_majority[,paste0("mean_",metric)] <- apply(target_1_metric, 1, mean)
+  target_1_majority[,paste0("sd_",metric)] <- apply(target_1_metric, 1, sd)
+}
+
+(target_1_majority <- target_1_majority[with(target_1_majority, order(0.6*target_1_majority[, "mean_Sensitivity"]+0.4*target_1_majority[,"mean_Specificity"], decreasing = TRUE)), ])
+```
+
+
+#### Target 6
+
+**Rank averaging**
+
+```{r}
+target_6_rank <- target_6_seed_167_rank[,c(5,6,7,8,9)]
+
+for (metric in c("Accuracy", "Sensitivity", "Specificity")) {
+  target_6_metric <- cbind(target_6_seed_123_rank[,metric], target_6_seed_134_rank[,metric], target_6_seed_145_rank[,metric], target_6_seed_167_rank[,metric],
+                           target_6_seed_178_rank[,metric], target_6_seed_189_rank[,metric], target_6_seed_211_rank[,metric], target_6_seed_232_rank[,metric],
+                           target_6_seed_367_rank[,metric], target_6_seed_455_rank[,metric])
+  
+  target_6_rank[,paste0("mean_",metric)] <- apply(target_6_metric, 1, mean)
+  target_6_rank[,paste0("sd_",metric)] <- apply(target_6_metric, 1, sd)
+}
+
+(target_6_rank <- target_6_rank[with(target_6_rank, order(0.6*target_6_rank[, "mean_Sensitivity"]+0.4*target_6_rank[,"mean_Specificity"], decreasing = TRUE)), ])
+```
+
+**Majority by number**
+
+```{r}
+target_6_majority <- target_6_seed_167_majority[,c(5,6,7,8,9)]
+
+for (metric in c("Accuracy", "Sensitivity", "Specificity")) {
+  target_6_metric <- cbind(target_6_seed_123_majority[,metric], target_6_seed_134_majority[,metric], target_6_seed_145_majority[,metric],
+                           target_6_seed_167_majority[,metric], target_6_seed_178_majority[,metric], target_6_seed_189_majority[,metric],
+                           target_6_seed_211_majority[,metric], target_6_seed_232_majority[,metric], target_6_seed_367_majority[,metric],
+                           target_6_seed_455_majority[,metric])
+  
+  target_6_majority[,paste0("mean_",metric)] <- apply(target_6_metric, 1, mean)
+  target_6_majority[,paste0("sd_",metric)] <- apply(target_6_metric, 1, sd)
+}
+
+(target_6_majority <- target_6_majority[with(target_6_majority, order(0.6*target_6_majority[, "mean_Sensitivity"]+0.4*target_6_majority[,"mean_Specificity"], decreasing = TRUE)), ])
+```
+
+
+#### Target 12
+
+**Rank averaging**
+
+```{r}
+target_12_rank <- target_12_seed_167_rank[,c(5,6,7,8,9)]
+
+for (metric in c("Accuracy", "Sensitivity", "Specificity")) {
+  target_12_metric <- cbind(target_12_seed_123_rank[,metric], target_12_seed_134_rank[,metric], target_12_seed_145_rank[,metric], target_12_seed_167_rank[,metric],
+                           target_12_seed_178_rank[,metric], target_12_seed_189_rank[,metric], target_12_seed_211_rank[,metric], target_12_seed_232_rank[,metric],
+                           target_12_seed_367_rank[,metric], target_12_seed_455_rank[,metric])
+  
+  target_12_rank[,paste0("mean_",metric)] <- apply(target_12_metric, 1, mean)
+  target_12_rank[,paste0("sd_",metric)] <- apply(target_12_metric, 1, sd)
+}
+
+(target_12_rank <- target_12_rank[with(target_12_rank, order(0.6*target_12_rank[, "mean_Sensitivity"]+0.4*target_12_rank[,"mean_Specificity"], decreasing = TRUE)), ])
+```
+
+
+**Majority by number**
+
+```{r}
+target_12_majority <- target_12_seed_167_majority[,c(5,6,7,8,9)]
+
+for (metric in c("Accuracy", "Sensitivity", "Specificity")) {
+  target_12_metric <- cbind(target_12_seed_123_majority[,metric], target_12_seed_134_majority[,metric], target_12_seed_145_majority[,metric],
+                            target_12_seed_167_majority[,metric], target_12_seed_178_majority[,metric], target_12_seed_189_majority[,metric],
+                            target_12_seed_211_majority[,metric], target_12_seed_232_majority[,metric], target_12_seed_367_majority[,metric],
+                            target_12_seed_455_majority[,metric])
+  
+  target_12_majority[,paste0("mean_",metric)] <- apply(target_12_metric, 1, mean)
+  target_12_majority[,paste0("sd_",metric)] <- apply(target_12_metric, 1, sd)
+}
+
+(target_12_majority <- target_12_majority[with(target_12_majority, order(0.6*target_12_majority[, "mean_Sensitivity"]+0.4*target_12_majority[,"mean_Specificity"], decreasing = TRUE)), ])
+```
+
+
+#### Target future
+
+**Rank averaging**
+
+```{r}
+target_future_rank <- target_future_seed_167_rank[,c(5,6,7,8,9)]
+
+for (metric in c("Accuracy", "Sensitivity", "Specificity")) {
+  target_future_metric <- cbind(target_future_seed_123_rank[,metric], target_future_seed_134_rank[,metric], target_future_seed_145_rank[,metric],
+                                target_future_seed_167_rank[,metric], target_future_seed_178_rank[,metric], target_future_seed_189_rank[,metric],
+                                target_future_seed_211_rank[,metric], target_future_seed_232_rank[,metric], target_future_seed_367_rank[,metric],
+                                target_future_seed_455_rank[,metric])
+  
+  target_future_rank[,paste0("mean_",metric)] <- apply(target_future_metric, 1, mean)
+  target_future_rank[,paste0("sd_",metric)] <- apply(target_future_metric, 1, sd)
+}
+
+(target_future_rank <- target_future_rank[with(target_future_rank, order(0.6*target_future_rank[, "mean_Sensitivity"]+0.4*target_future_rank[,"mean_Specificity"], decreasing = TRUE)), ])
+```
+
+**Majority by number**
+
+```{r}
+target_future_majority <- target_future_seed_167_majority[,c(5,6,7,8,9)]
+
+for (metric in c("Accuracy", "Sensitivity", "Specificity")) {
+  target_future_metric <- cbind(target_future_seed_123_majority[,metric], target_future_seed_134_majority[,metric], target_future_seed_145_majority[,metric],
+                                target_future_seed_167_majority[,metric], target_future_seed_178_majority[,metric], target_future_seed_189_majority[,metric],
+                                target_future_seed_211_majority[,metric], target_future_seed_232_majority[,metric], target_future_seed_367_majority[,metric],
+                                target_future_seed_455_majority[,metric])
+  
+  target_future_majority[,paste0("mean_",metric)] <- apply(target_future_metric, 1, mean)
+  target_future_majority[,paste0("sd_",metric)] <- apply(target_future_metric, 1, sd)
+}
+
+(target_future_majority <- target_future_majority[with(target_future_majority, order(0.6*target_future_majority[, "mean_Sensitivity"]+0.4*target_future_majority[,"mean_Specificity"], decreasing = TRUE)), ])
+```
+
+### Saving the results
+
+Joining the two ensembling methods for each target. Then, ordering by 0.6·Sensitivity + 0.4·Specificity.
+
+```{r}
+target_1 <- rbind(target_1_majority,target_1_rank)
+(target_1 <- target_1[with(target_1, order(0.6*target_1[, "mean_Sensitivity"]+0.4*target_1[,"mean_Specificity"], decreasing = TRUE)), ])
+
+target_6<- rbind(target_6_majority,target_6_rank)
+(target_6 <- target_6[with(target_6, order(0.6*target_6[, "mean_Sensitivity"]+0.4*target_6[,"mean_Specificity"], decreasing = TRUE)), ])
+
+target_12<- rbind(target_12_majority,target_12_rank)
+(target_12 <- target_12[with(target_12, order(0.6*target_12[, "mean_Sensitivity"]+0.4*target_12[,"mean_Specificity"], decreasing = TRUE)), ])
+
+target_future<- rbind(target_future_majority,target_future_rank)
+(target_future <- target_future[with(target_future, order(0.6*target_future[, "mean_Sensitivity"]+0.4*target_future[,"mean_Specificity"], decreasing = TRUE)), ])
+```
+
+Saving the results.
+
+```{r}
+dir.create(file.path("../Results", "2. Ensembling_models", "2.2. Ensembling_averaged"), recursive = TRUE,showWarnings = FALSE)
+
+write.csv(target_1, file = '../Results/2. Ensembling_models/2.2. Ensembling_averaged/target_1.csv')
+write.csv(target_6, file = '../Results/2. Ensembling_models/2.2. Ensembling_averaged/target_6.csv')
+write.csv(target_12, file = '../Results/2. Ensembling_models/2.2. Ensembling_averaged/target_12.csv')
+write.csv(target_future, file = '../Results/2. Ensembling_models/2.2. Ensembling_averaged/target_future.csv')
+```
