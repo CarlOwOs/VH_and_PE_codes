@@ -50,7 +50,7 @@ set.seed <- 433
 Reading continuous, categorized, or one hot data. Deleting some columns which values are incorrect or not useful for training the models.
 
 ```{r}
-X <- read.csv(paste0('../../Data/',csv))
+X <- read.csv(paste0('../Data/',csv))
 drop <- names(X) %in% c("mg_sacu_seguim", "nhc")
 X <- subset(X, select = !drop)
 ```
