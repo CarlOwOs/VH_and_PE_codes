@@ -79,6 +79,11 @@ In colaboration with:
 
 ---
 
+<p align="center">
+  <img src='README Images/AV.png'/ width = 150><br><br>
+  <i>Aquivis Analytics, 2021.</i>
+</p>
+
 
 
 
