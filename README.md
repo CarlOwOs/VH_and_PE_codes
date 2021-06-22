@@ -11,7 +11,7 @@ The code is divided into 5 sections:
 Scripts that extract,clean and transform the data from the Vall d'Hebron servers.
 
 <p align="center">
-  <img src='README Images/DP'/ width = 500>
+  <img src='README Images/DP.png'/ width = 500>
 </p>
 
 ## [CardIA and alarms](./CardIA_and_alarms)
@@ -19,7 +19,7 @@ Scripts that extract,clean and transform the data from the Vall d'Hebron servers
 Scripts used for predicting [Heart Failure Descompensations](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4878602/) and perform alarm tracking.
 
 <p align="center">
-  <img src='README Images/CA'/ width = 500>
+  <img src='README Images/CA.png'/ width = 500>
 </p>
 
 ## [Dashboard](./Dashboard)
@@ -27,7 +27,7 @@ Scripts used for predicting [Heart Failure Descompensations](https://www.ncbi.nl
 Scripts used for generating an interactive dashboard helpful to get data insight and evaluate the performance of the unit.
 
 <p align="center">
-  <img src='README Images/DB'/ width = 500>
+  <img src='README Images/DB.png'/ width = 500>
 </p>
 
 ## [Auditability](./Auditability)
@@ -35,7 +35,7 @@ Scripts used for generating an interactive dashboard helpful to get data insight
 Files used to detect dependences between the rest of the scripts.
 
 <p align="center">
-  <img src='README Images/AU'/ width = 500>
+  <img src='README Images/AU.png'/ width = 500>
 </p>
 
 ## [Sklearn](./Sklearn)
@@ -43,7 +43,7 @@ Files used to detect dependences between the rest of the scripts.
 Script containing our alternative approach to the model generation that was finally discarded.
 
 <p align="center">
-  <img src='README Images/SK'/ width = 500>
+  <img src='README Images/SK.png'/ width = 500>
 </p>
 
 *Note: The rest of the files in the master branch are auxiliary or license related*
