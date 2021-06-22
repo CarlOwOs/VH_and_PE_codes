@@ -1,9 +1,14 @@
 # Vall d'Hebron's Challenge 2020 by Aquivis Analytics
 
-> Codes used to develop our proposed solution for the [Vall d'Hebron](https://www.vallhebron.com/es)'s Challenge.
+> Codes used to develop our proposed solution for the [Vall d'Hebron](https://www.vallhebron.com/es)'s 2020 Challenge.
 
 This repository contains the codes developed during the *Projectes d'Enginyeria* subject given on the Degree in Data Science and Engineering at [UPC](https://www.upc.edu/ca).
 
+<p align="center">
+  <img src='README Images/VHxUPC.png'/ width = 150>
+</p>
+
+---
 The code is divided into 5 sections:
 
 ## [Data Preprocessing](./Data_extraction)
