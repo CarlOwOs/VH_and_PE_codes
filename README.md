@@ -5,7 +5,7 @@
 This repository contains the codes developed during the *Projectes d'Enginyeria* subject given on the Degree in Data Science and Engineering at [UPC](https://www.upc.edu/ca).
 
 <p align="center">
-  <img src='README Images/VHxUPC.png'/ width = 150>
+  <img src='README Images/VHxUPC.png'/ width = 250>
 </p>
 
 ---
