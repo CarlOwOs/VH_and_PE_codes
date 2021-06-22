@@ -11,10 +11,10 @@ import Auxiliary.auxiliary_functions as aux_fun
 # SERVER CONNECTION VARIABLES
 DIALECT = 'oracle'
 SQL_DRIVER = 'cx_oracle'
-USERNAME = 'UPC' #enter your username
-PASSWORD = 'J4p75PPl' #enter your password
-HOST = 'servora5.cs.vhebron.es' #enter the oracle db host url
-PORT = 1521 # enter the oracle port number
+USERNAME = 'XXX' #Due to confidentiality reasons, this values will not be provided
+PASSWORD = 'xxxxxxx' #Due to confidentiality reasons, this values will not be provided
+HOST = 'servora5.cs.vhebron.es' 
+PORT = 1521 
 DATABASE = 'BBDD5'
 ENGINE_PATH_WIN_AUTH = DIALECT + '+' + SQL_DRIVER + '://' + USERNAME + ':' + PASSWORD +'@' + HOST + ':' + str(PORT) + '/' + DATABASE 
 #--------------------------------------------------
