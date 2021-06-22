@@ -1,4 +1,4 @@
-# Aquivis Analytics: Vall d'Hebron's Challenge 2020
+# Vall d'Hebron's Challenge 2020 by Aquivis Analytics
 
 > Codes used to develop our proposed solution for the [Vall d'Hebron](https://www.vallhebron.com/es)'s Challenge.
 
