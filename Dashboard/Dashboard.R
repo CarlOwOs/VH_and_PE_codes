@@ -32,8 +32,8 @@ options(device.ask.default = FALSE)
 
 source("./Back_end/economics.R")
 source("./Back_end/variables.R")
-source("./Back_end/salut.R")
-source("./Back_end/grafics_alarmes.R")
+source("./Back_end/health.R")
+source("./Back_end/alarm_graphics.R")
 
 dd_EQ5DL <- read.csv("./Back_end/CSVs/full_EQ5DL.csv")
 list_nhc_EQ5DL <- dd_EQ5DL[,"NHC"]
