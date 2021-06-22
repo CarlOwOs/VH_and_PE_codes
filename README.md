@@ -9,9 +9,10 @@ This repository contains the codes developed during the *Projectes d'Enginyeria*
 </p>
 
 ---
+## Project Architecture 
 The code is divided into 5 sections:
 
-## [Data Preprocessing](./Data_extraction)
+### [Data Preprocessing](./Data_extraction)
 
 Scripts that extract,clean and transform the data from the Vall d'Hebron servers.
 
@@ -19,7 +20,7 @@ Scripts that extract,clean and transform the data from the Vall d'Hebron servers
   <img src='README Images/DP.png'/ width = 500>
 </p>
 
-## [CardIA and alarms](./CardIA_and_alarms)
+### [CardIA and alarms](./CardIA_and_alarms)
 
 Scripts used for predicting [Heart Failure Descompensations](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4878602/) and perform alarm tracking.
 
@@ -27,7 +28,7 @@ Scripts used for predicting [Heart Failure Descompensations](https://www.ncbi.nl
   <img src='README Images/CA.png'/ width = 500>
 </p>
 
-## [Dashboard](./Dashboard)
+### [Dashboard](./Dashboard)
 
 Scripts used for generating an interactive dashboard helpful to get data insight and evaluate the performance of the unit.
 
@@ -35,7 +36,7 @@ Scripts used for generating an interactive dashboard helpful to get data insight
   <img src='README Images/DB.png'/ width = 500>
 </p>
 
-## [Auditability](./Auditability)
+### [Auditability](./Auditability)
 
 Files used to detect dependences between the rest of the scripts.
 
@@ -43,7 +44,7 @@ Files used to detect dependences between the rest of the scripts.
   <img src='README Images/AU.png'/ width = 500>
 </p>
 
-## [Sklearn](./Sklearn)
+### [Sklearn](./Sklearn)
 
 Script containing our alternative approach to the model generation that was finally discarded.
 
