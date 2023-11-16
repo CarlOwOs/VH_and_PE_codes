@@ -48,10 +48,6 @@ Files used to detect dependences between the rest of the scripts.
 
 Script containing our alternative approach to the model generation that was finally discarded.
 
-<p align="center">
-  <img src='README Images/SK.png'/ width = 500>
-</p>
-
 *Note: The rest of the files in the master branch are auxiliary or license related*
 
 ## Team
